@@ -1,0 +1,27 @@
+{
+  "name": "@modern-router-management/types",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "require": "./dist/index.js",
+      "default": "./src/index.ts"
+    },
+    "./router": {
+      "types": "./dist/router.d.ts",
+      "import": "./src/router.ts",
+      "require": "./dist/router.js",
+      "default": "./src/router.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "zod": "^4.3.5"
+  }
+}
