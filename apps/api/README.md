@@ -115,3 +115,12 @@ Run `bun run build:deps` from the project root to build the dependencies.
 - Verify your `DATABASE_URL` is correct
 - Ensure PostgreSQL is running: `pg_isready`
 - Check database user permissions
+
+## Docker Deployment
+
+See the root [`README.md`](../../README.md#docker-deployment) for complete Docker deployment instructions including:
+- Building the production image
+- Running with Docker Compose
+- Manual container deployment with Podman/Docker
+- Environment variable configuration
+- Health check endpoints

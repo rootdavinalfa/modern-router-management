@@ -1,0 +1,56 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+.next
+out
+build
+
+# Turbo
+.turbo
+.turboignore
+
+# Testing
+coverage
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!package.json
+!tsconfig.json
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Misc
+*.pem
+*.seed
+*.pid
+*.pid.lock

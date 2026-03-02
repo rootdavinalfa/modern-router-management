@@ -239,6 +239,110 @@ cd apps/api && bun run build:deps
 
 MIT License - see [LICENSE](LICENSE) for details.
 
+## Docker Deployment
+
+### Prerequisites
+
+- **Podman** or **Docker** installed
+- **PostgreSQL** (optional, can run in container)
+
+### Build the Image
+
+```bash
+# Build production image
+podman build -t modern-router-api:latest --target production .
+
+# The build includes:
+# - TypeScript compilation for all packages
+# - Playwright Chromium browser installation
+# - Production dependencies only
+```
+
+### Run with Docker Compose (Recommended)
+
+```bash
+# Start PostgreSQL and API together
+docker-compose up -d
+
+# View logs
+docker-compose logs -f api
+
+# Stop everything
+docker-compose down
+```
+
+### Run Manually
+
+**1. Start PostgreSQL:**
+```bash
+podman run -d --name modern-router-db \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=12345678 \
+  -e POSTGRES_DB=modern_router_mgmt \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+**2. Generate Encryption Key:**
+```bash
+openssl rand -base64 32
+```
+
+**3. Create Environment File:**
+```bash
+cat > .env.docker << EOF
+NODE_ENV=production
+PORT=3001
+DB_ENGINE=postgres
+DATABASE_URL=postgresql://postgres:12345678@localhost:5432/modern_router_mgmt
+ROUTER_CREDENTIALS_KEY=<your-generated-key>
+EOF
+```
+
+**4. Run the API Container:**
+```bash
+podman run -d --name modern-router-api \
+  -p 3001:3001 \
+  --env-file .env.docker \
+  modern-router-api:latest
+```
+
+### Test the Deployment
+
+```bash
+# Check health endpoint
+curl http://localhost:3001/health
+
+# List routers
+curl http://localhost:3001/routers
+
+# Check container logs
+podman logs modern-router-api
+```
+
+### Docker Notes
+
+**Image Size:**
+- Build stage: ~2.5 GB (includes build tools, Chromium)
+- Production stage: ~800 MB (slim, runtime only)
+
+**Playwright Chromium:**
+- Chromium browser is pre-installed during build
+- Browser cache is copied to production image
+- All required system libraries are included
+
+**Environment Variables:**
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DB_ENGINE` | Yes | `sqlite` or `postgres` |
+| `DATABASE_URL` | If postgres | PostgreSQL connection string |
+| `ROUTER_CREDENTIALS_KEY` | Yes | Base64-encoded 32-byte key |
+| `PORT` | No | API port (default: 3001) |
+
+**Volumes:**
+- PostgreSQL data is persisted in `postgres_data` volume
+- API container is stateless (no volumes needed)
+
 ## Acknowledgments
 
 - [NestJS](https://nestjs.com/) - Progressive Node.js framework
