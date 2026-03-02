@@ -45,7 +45,7 @@ RUN cd apps/web && bun run build
 FROM oven/bun:1.2.21-slim AS production
 WORKDIR /app
 
-# Install runtime dependencies including Playwright Chromium deps
+# Install runtime dependencies including Playwright Chromium deps and build tools for native modules
 RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
@@ -53,6 +53,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgbm1 libasound2 libatspi2.0-0 \
     libgstreamer1.0-0 libgstreamer-gl1.0-0 libgtk-3-0 libegl1 \
     libglx0 libx11-xcb1 libxcb-dri3-0 \
+    python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy built artifacts from builder

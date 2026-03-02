@@ -350,7 +350,7 @@ export class ZteF6600pDriver implements RouterDriver {
   private async getPage(): Promise<Page> {
     if (!this.browser) {
       this.browser = await chromium.launch({
-        headless: this.config.headless ?? false,
+        headless: this.config.headless ?? true,
       });
     }
 
