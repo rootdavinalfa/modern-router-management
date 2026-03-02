@@ -54,7 +54,7 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
 
   private async initializeDrivers(): Promise<void> {
     const routers = await this.db.select().from(this.schema.routers);
-    
+
     for (const router of routers) {
       try {
         const [credentials] = await this.db
@@ -86,13 +86,16 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
           password,
         });
 
+        // Authenticate once during initialization
+        await driver.authenticate();
+
         this.driverCache.set(router.id, {
           driver,
           host: router.host,
           username,
         });
 
-        console.log(`[RoutersService] Initialized driver for router ${router.id} (${router.host})`);
+        console.log(`[RoutersService] Initialized and authenticated driver for router ${router.id} (${router.host})`);
       } catch (error) {
         console.error(`[RoutersService] Failed to initialize driver for router ${router.id}:`, error);
       }
@@ -176,12 +179,15 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
       ...(this.connection.engine === 'sqlite' ? { createdAt: now } : {}),
     });
 
-    // Initialize and cache the driver for the new router
+    // Initialize and authenticate the driver for the new router
     const driver = new ZteF6600pDriver({
       host: router.host,
       username: payload.username,
       password: payload.password,
     });
+
+    // Authenticate once during initialization
+    await driver.authenticate();
 
     this.driverCache.set(router.id, {
       driver,
@@ -189,7 +195,7 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
       username: payload.username,
     });
 
-    console.log(`[RoutersService] Initialized driver for new router ${router.id} (${router.host})`);
+    console.log(`[RoutersService] Initialized and authenticated driver for new router ${router.id} (${router.host})`);
 
     return {
       id: router.id,
@@ -226,7 +232,7 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
     handler: (driver: ZteF6600pDriver) => Promise<T>,
   ): Promise<T> {
     const cached = this.driverCache.get(routerId);
-    
+
     if (!cached) {
       // If driver not in cache, try to load it from database
       const [router] = await this.db
@@ -267,6 +273,9 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
         password,
       });
 
+      // Authenticate once for temporary driver
+      await driver.authenticate();
+
       this.driverCache.set(routerId, {
         driver,
         host: router.host,
@@ -280,7 +289,25 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Use cached driver
-    return await handler(cached.driver);
+    // Use cached driver with retry logic for authentication errors
+    try {
+      return await handler(cached.driver);
+    } catch (error) {
+      // If error might be due to session expiration, try to re-authenticate
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isAuthError = 
+        errorMessage.toLowerCase().includes('login') ||
+        errorMessage.toLowerCase().includes('auth') ||
+        errorMessage.toLowerCase().includes('session') ||
+        errorMessage.toLowerCase().includes('unauthorized');
+
+      if (isAuthError) {
+        console.log(`[RoutersService] Re-authenticating router ${routerId} due to potential session error`);
+        await cached.driver.reauthenticate();
+        return await handler(cached.driver);
+      }
+
+      throw error;
+    }
   }
 }

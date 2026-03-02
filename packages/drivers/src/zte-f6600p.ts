@@ -40,18 +40,32 @@ export class ZteF6600pDriver implements RouterDriver {
   private browser?: Browser;
   private page?: Page;
   private authenticated = false;
+  private authenticationPromise?: Promise<boolean>;
 
   constructor(private readonly config: ZteF6600pDriverConfig) { }
 
+  /**
+   * Initialize authentication. Call this once when the driver is created.
+   */
   async authenticate(): Promise<boolean> {
     if (this.authenticated) {
       return true;
     }
 
-    console.log(
-      `[zte-f6600p] Authenticating with username: ${this.config.username}, password: ${this.config.password}`,
-    );
+    // Prevent concurrent authentication attempts
+    if (this.authenticationPromise) {
+      return this.authenticationPromise;
+    }
 
+    this.authenticationPromise = this.doAuthenticate();
+    try {
+      return await this.authenticationPromise;
+    } finally {
+      this.authenticationPromise = undefined;
+    }
+  }
+
+  private async doAuthenticate(): Promise<boolean> {
     const page = await this.getPage();
     await page.goto(this.getBaseUrl(), { waitUntil: "domcontentloaded" });
 
@@ -103,8 +117,21 @@ export class ZteF6600pDriver implements RouterDriver {
     return true;
   }
 
-  async getSystemStatus(): Promise<RouterStatusDTO & { ponData: Record<string, unknown>; wanConnections: WanConnection[] }> {
-    await this.authenticate();
+  /**
+   * Re-authenticate when an error occurs (e.g., session expired).
+   * This forces a fresh login attempt.
+   */
+  async reauthenticate(): Promise<boolean> {
+    this.resetAuthentication();
+    return this.authenticate();
+  }
+
+  async getSystemStatus(): Promise<
+    RouterStatusDTO & {
+      ponData: Record<string, unknown>;
+      wanConnections: WanConnection[];
+    }
+  > {
     const page = await this.getPage();
 
     // Navigate to Internet → Status → PON Inform
@@ -138,20 +165,20 @@ export class ZteF6600pDriver implements RouterDriver {
 
     // Extract all WAN connections
     const wanConnections = await page.evaluate(() => {
-      const connections: any[] = [];
-      
+      const connections: WanConnection[] = [];
+
       // Find all template_EthStateDev_N divs (N is index)
       const templates = document.querySelectorAll(
         '[id^="template_EthStateDev_"]',
       );
-      
+
       for (const template of templates) {
         const id = template.id;
         // Skip the hidden template without index
         if (id === "template_EthStateDev") continue;
 
         const index = id.replace("template_EthStateDev_", "");
-        
+
         // Helper to get element text by id
         const getText = (fieldId: string) => {
           const el = document.getElementById(`${fieldId}:${index}`);
@@ -160,24 +187,26 @@ export class ZteF6600pDriver implements RouterDriver {
 
         // Helper to get hidden input value by id
         const getHidden = (fieldId: string) => {
-          const el = document.getElementById(`${fieldId}:${index}`) as HTMLInputElement | null;
+          const el = document.getElementById(
+            `${fieldId}:${index}`,
+          ) as HTMLInputElement | null;
           return el?.value || "";
         };
 
         const connStatus = getText("cConnStatus");
         const upTimeText = getText("cUpTime");
-        
+
         // Parse uptime (format: "72 h 55 min 38 s")
         const hoursMatch = upTimeText.match(/(\d+)\s*h/);
         const minsMatch = upTimeText.match(/(\d+)\s*min/);
         const secsMatch = upTimeText.match(/(\d+)\s*s/);
-        
+
         const uptimeSeconds =
           (hoursMatch ? parseInt(hoursMatch[1]) * 3600 : 0) +
           (minsMatch ? parseInt(minsMatch[1]) * 60 : 0) +
           (secsMatch ? parseInt(secsMatch[1]) : 0);
 
-        const conn: any = {
+        const conn: WanConnection = {
           name: getText("WANCName"),
           type: getText("cRouteMode"),
           ipVersion: getText("cIpMode"),
@@ -224,7 +253,7 @@ export class ZteF6600pDriver implements RouterDriver {
       : undefined;
 
     // Find first connected WAN for primary status
-    const connectedWan = wanConnections.find(w => w.connectionStatus === "Connected");
+    const connectedWan = wanConnections.find((w) => w.name === "INTERNET");
     const wanIp = connectedWan?.ipAddress?.split("/")[0] || "0.0.0.0";
     const uptimeSeconds = connectedWan?.uptimeSeconds || 0;
     const online = !!connectedWan;
@@ -243,7 +272,6 @@ export class ZteF6600pDriver implements RouterDriver {
   }
 
   async getConnectedDevices(): Promise<DeviceDTO[]> {
-    await this.authenticate();
     const page = await this.getPage();
     const list = await page.evaluate(() => {
       const w = window as any;
@@ -296,11 +324,11 @@ export class ZteF6600pDriver implements RouterDriver {
   }
 
   async updateWifiSettings(_config: WifiConfigDTO): Promise<void> {
-    await this.authenticate();
+    const page = await this.getPage();
   }
 
   async reboot(): Promise<void> {
-    await this.authenticate();
+    const page = await this.getPage();
   }
 
   async close(): Promise<void> {
