@@ -19,12 +19,12 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
       target: production
-    container_name: modern-router-api
+    container_name: modern-router-app
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -33,7 +33,8 @@ services:
       DATABASE_URL: postgresql://postgres:12345678@postgres:5432/modern_router_mgmt
       ROUTER_CREDENTIALS_KEY: ${ROUTER_CREDENTIALS_KEY:-}
     ports:
-      - "3001:3001"
+      - "80:80"   # Web frontend
+      - "3001:3001"  # API (for health checks)
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,7 +43,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
 volumes:
   postgres_data:

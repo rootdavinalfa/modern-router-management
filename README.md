@@ -249,27 +249,31 @@ MIT License - see [LICENSE](LICENSE) for details.
 ### Build the Image
 
 ```bash
-# Build production image
-podman build -t modern-router-api:latest --target production .
+# Build production image (includes both API and Frontend)
+podman build -t modern-router-app:latest --target production .
 
 # The build includes:
 # - TypeScript compilation for all packages
 # - Playwright Chromium browser installation
+# - Frontend web application build
+# - Nginx for serving static files
 # - Production dependencies only
 ```
 
 ### Run with Docker Compose (Recommended)
 
 ```bash
-# Start PostgreSQL and API together
+# Start PostgreSQL and App together
 docker-compose up -d
 
 # View logs
-docker-compose logs -f api
+docker-compose logs -f app
 
 # Stop everything
 docker-compose down
 ```
+
+Access the application at **http://localhost** (frontend) and **http://localhost:3001** (API).
 
 ### Run Manually
 
@@ -299,37 +303,41 @@ ROUTER_CREDENTIALS_KEY=<your-generated-key>
 EOF
 ```
 
-**4. Run the API Container:**
+**4. Run the App Container:**
 ```bash
-podman run -d --name modern-router-api \
+podman run -d --name modern-router-app \
+  -p 80:80 \
   -p 3001:3001 \
   --env-file .env.docker \
-  modern-router-api:latest
+  modern-router-app:latest
 ```
 
 ### Test the Deployment
 
 ```bash
-# Check health endpoint
+# Access frontend
+curl http://localhost
+
+# Check API health endpoint
 curl http://localhost:3001/health
 
-# List routers
-curl http://localhost:3001/routers
+# List routers via API
+curl http://localhost/api/routers
 
 # Check container logs
-podman logs modern-router-api
+podman logs modern-router-app
 ```
 
-### Docker Notes
+### Container Architecture
+
+The single container includes:
+- **Nginx** (port 80): Serves frontend static files, proxies /api/* to backend
+- **NestJS API** (port 3001): Backend API server
+- **Playwright Chromium**: Browser automation for router scraping
 
 **Image Size:**
-- Build stage: ~2.5 GB (includes build tools, Chromium)
-- Production stage: ~800 MB (slim, runtime only)
-
-**Playwright Chromium:**
-- Chromium browser is pre-installed during build
-- Browser cache is copied to production image
-- All required system libraries are included
+- Build stage: ~3 GB (includes build tools, Chromium, frontend build)
+- Production stage: ~1 GB (slim, runtime only)
 
 **Environment Variables:**
 | Variable | Required | Description |
@@ -341,7 +349,7 @@ podman logs modern-router-api
 
 **Volumes:**
 - PostgreSQL data is persisted in `postgres_data` volume
-- API container is stateless (no volumes needed)
+- App container is stateless (no volumes needed)
 
 ## Kubernetes Deployment
 
@@ -380,9 +388,9 @@ GitHub Actions workflow is configured in [`.github/workflows/ci-cd.yml`](.github
 
 1. **Lint** - Code linting and formatting checks
 2. **Type Check** - TypeScript type checking
-3. **Build** - Build all packages
+3. **Build** - Build all packages (API, Web, Types, Drivers)
 4. **Test** - Run test suites
-5. **Docker Build & Push** - Build and push container image to ghcr.io
+5. **Docker Build & Push** - Build and push combined container to ghcr.io
 
 ### Triggers
 
@@ -392,14 +400,15 @@ GitHub Actions workflow is configured in [`.github/workflows/ci-cd.yml`](.github
 
 ### Manual Deployment
 
-After the Docker image is pushed to the registry, you can deploy manually:
+After the Docker image is pushed to the registry:
 
 ```bash
 # Pull the latest image
 docker pull ghcr.io/rootdavinalfa/modern-router-management:latest
 
-# Run with your configuration
-docker run -d --name modern-router-api \
+# Run with PostgreSQL
+docker run -d --name modern-router-app \
+  -p 80:80 \
   -p 3001:3001 \
   -e NODE_ENV=production \
   -e DB_ENGINE=postgres \
@@ -407,6 +416,10 @@ docker run -d --name modern-router-api \
   -e ROUTER_CREDENTIALS_KEY=your-key \
   ghcr.io/rootdavinalfa/modern-router-management:latest
 ```
+
+Access:
+- **Frontend**: http://localhost
+- **API**: http://localhost:3001
 
 For Kubernetes deployment, see [`kubernetes/README.md`](kubernetes/README.md).
 

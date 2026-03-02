@@ -7,7 +7,8 @@ import {
   type WifiConfigDTO,
 } from '@modern-router-management/types/router'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+// Use relative URL in production (nginx proxy), absolute in development
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
