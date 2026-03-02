@@ -81,7 +81,7 @@ export function RouterSetupForm({
             />
           </div>
 
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} className="px-8 py-4 text-base">
             {isPending ? 'Saving...' : 'Save router'}
           </Button>
 

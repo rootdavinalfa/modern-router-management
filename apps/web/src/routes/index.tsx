@@ -17,6 +17,7 @@ import {
   WANConnections,
   RouterSetupForm,
   RouterSelector,
+  SubmitInternetButton,
 } from '../components/dashboard'
 
 export const Route = createFileRoute('/')({ component: App })
@@ -180,6 +181,12 @@ function App() {
         />
 
         <WANConnections connections={statusSnapshot.wanConnections} />
+
+        {routerId && (
+          <div className="mt-6 flex justify-end">
+            <SubmitInternetButton routerId={routerId} />
+          </div>
+        )}
       </section>
 
       <section>

@@ -245,6 +245,10 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
     await this.withDriver(routerId, (driver) => driver.reboot());
   }
 
+  async submitInternet(routerId: number): Promise<void> {
+    await this.withDriver(routerId, (driver) => driver.submitInternet());
+  }
+
   private async withDriver<T>(
     routerId: number,
     handler: (driver: ZteF6600pDriver) => Promise<T>,

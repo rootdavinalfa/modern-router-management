@@ -27,6 +27,42 @@ function WANDetailItem({ label, value }: WANDetailItemProps) {
   )
 }
 
+interface WANDetailItemWithBadgeProps {
+  label: string
+  value: string
+  badgeLabel?: string
+  badgeVariant?: 'private' | 'public'
+}
+
+function WANDetailItemWithBadge({
+  label,
+  value,
+  badgeLabel,
+  badgeVariant,
+}: WANDetailItemWithBadgeProps) {
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-xs text-[var(--sea-ink-soft)]">{label}</p>
+      <div className="flex items-center gap-2">
+        <p className="text-sm font-medium text-[var(--sea-ink)] break-all">
+          {value || 'N/A'}
+        </p>
+        {badgeLabel && (
+          <Badge
+            className={
+              badgeVariant === 'private'
+                ? 'bg-[rgba(47,106,74,0.12)] text-[var(--palm)]'
+                : 'bg-[rgba(200,50,50,0.12)] text-[var(--lagoon-deep)]'
+            }
+          >
+            {badgeLabel}
+          </Badge>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function WANConnectionCard({
   connection,
   index,
@@ -50,6 +86,7 @@ export function WANConnectionCard({
     connectionStatusV6,
     uptimeV6,
     gatewayV6,
+    isPrivate,
   } = connection
 
   const hasIPv6 =
@@ -88,7 +125,14 @@ export function WANConnectionCard({
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <WANDetailItem label="IP Address" value={ipAddress} />
+          <div className="sm:col-span-2 lg:col-span-3">
+            <WANDetailItemWithBadge
+              label="IP Address"
+              value={ipAddress}
+              badgeLabel={isPrivate ? 'Private' : 'Public'}
+              badgeVariant={isPrivate ? 'private' : 'public'}
+            />
+          </div>
           <WANDetailItem label="Gateway" value={gateway} />
           <WANDetailItem label="DNS" value={dns} />
           <WANDetailItem label="MAC Address" value={macAddress} />

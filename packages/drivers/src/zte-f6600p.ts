@@ -27,6 +27,7 @@ export type WanConnection = {
   disconnectReason: string;
   macAddress: string;
   vlanId: string;
+  isPrivate: boolean;
   // IPv6 fields
   lla?: string;
   gua?: string;
@@ -172,6 +173,38 @@ export class ZteF6600pDriver implements RouterDriver {
         '[id^="template_EthStateDev_"]',
       );
 
+      // Helper function to check if an IP address is private
+      const isPrivateIp = (ipWithCidr: string): boolean => {
+        const ip = ipWithCidr.split("/")[0];
+        const parts = ip.split(".").map((p) => parseInt(p, 10));
+
+        if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
+          return false;
+        }
+
+        const [a, b, c, d] = parts;
+
+        // 10.0.0.0/8
+        if (a === 10) return true;
+
+        // 172.16.0.0/12
+        if (a === 172 && b >= 16 && b <= 31) return true;
+
+        // 192.168.0.0/16
+        if (a === 192 && b === 16) return true;
+
+        // 127.0.0.0/8 (loopback)
+        if (a === 127) return true;
+
+        // 100.64.0.0/10 (CGNAT)
+        if (a === 100 && b >= 64 && b <= 127) return true;
+
+        // 169.254.0.0/16 (link-local)
+        if (a === 169 && b === 254) return true;
+
+        return false;
+      };
+
       for (const template of templates) {
         const id = template.id;
         // Skip the hidden template without index
@@ -206,12 +239,14 @@ export class ZteF6600pDriver implements RouterDriver {
           (minsMatch ? parseInt(minsMatch[1]) * 60 : 0) +
           (secsMatch ? parseInt(secsMatch[1]) : 0);
 
+        const ipAddress = getText("cIPAddress");
+
         const conn: WanConnection = {
           name: getText("WANCName"),
           type: getText("cRouteMode"),
           ipVersion: getText("cIpMode"),
           nat: getText("cIsNAT"),
-          ipAddress: getText("cIPAddress"),
+          ipAddress,
           dns: getText("cDNS"),
           gateway: getText("cGateWay"),
           connectionStatus: connStatus,
@@ -220,6 +255,7 @@ export class ZteF6600pDriver implements RouterDriver {
           disconnectReason: getText("cConnError"),
           macAddress: getText("cWorkIFMac"),
           vlanId: getHidden("VLANID"),
+          isPrivate: isPrivateIp(ipAddress),
         };
 
         // IPv6 fields (if available)
@@ -321,6 +357,31 @@ export class ZteF6600pDriver implements RouterDriver {
             ? device.signalStrength
             : undefined,
       })) as DeviceDTO[];
+  }
+
+  /**
+   * Submit/Apply Internet settings by navigating to Internet → WAN and clicking Apply.
+   * This is typically used after modifying WAN configuration.
+   */
+  async submitInternet(): Promise<void> {
+    const page = await this.getPage();
+
+    // Navigate to Internet → WAN
+    await page.getByRole("link", { name: "Internet" }).click();
+    await page.getByRole("link", { name: "WAN" }).click();
+
+    // Wait for WAN configuration page to load
+    await page.waitForSelector('[id="instName_Internet:1"]', { timeout: 10000 });
+
+    // Click on the Internet instance to ensure it's selected
+    await page.locator('[id="instName_Internet:1"]').click();
+
+    // Click Apply button and wait for the action to complete
+    await page.getByRole("button", { name: "Apply" }).click();
+
+    // Wait for apply operation to complete
+    await page.waitForLoadState("networkidle").catch(() => null);
+    await page.waitForTimeout(2000);
   }
 
   async updateWifiSettings(_config: WifiConfigDTO): Promise<void> {

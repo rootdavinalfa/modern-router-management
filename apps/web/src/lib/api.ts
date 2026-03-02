@@ -61,6 +61,7 @@ export type WanConnection = {
   disconnectReason: string
   macAddress: string
   vlanId: string
+  isPrivate: boolean
   lla?: string
   gua?: string
   dnsV6?: string
@@ -83,5 +84,10 @@ export const updateWifi = (routerId: number, config: WifiConfigDTO) =>
 
 export const rebootRouter = (routerId: number) =>
   request<{ ok: boolean }>(`/routers/${routerId}/reboot`, {
+    method: 'POST',
+  })
+
+export const submitInternet = (routerId: number) =>
+  request<{ ok: boolean }>(`/routers/${routerId}/internet/submit`, {
     method: 'POST',
   })
