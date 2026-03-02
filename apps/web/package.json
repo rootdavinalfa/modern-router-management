@@ -12,7 +12,9 @@
     "test": "vitest run",
     "lint": "eslint",
     "format": "prettier --check .",
-    "check": "prettier --write . && eslint --fix"
+    "check": "prettier --write . && eslint --fix",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf dist .vercel"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -4,9 +4,22 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:web": "turbo run web#dev",
+    "dev:api": "turbo run api#dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "lint:fix": "turbo run lint -- --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "clean": "turbo run clean && rm -rf node_modules && rm -rf .turbo",
+    "clean:cache": "rm -rf .turbo && rm -rf **/.turbo",
+    "build:types": "turbo run @modern-router-management/types#build",
+    "build:drivers": "turbo run @modern-router-management/drivers#build",
+    "build:ui": "turbo run @modern-router-management/ui#build",
+    "build:api": "turbo run api#build",
+    "build:web": "turbo run web#build"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

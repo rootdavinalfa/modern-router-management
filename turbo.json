@@ -1,19 +1,81 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalDependencies": ["tsconfig.json"],
+  "globalEnv": ["NODE_ENV"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "inputs": ["$TURBO_DEFAULT$", ".env*", "src/**", "package.json", "tsconfig.json", "vite.config.ts", "nest-cli.json"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["VITE_*"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "test/**"],
+      "cache": true
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "test/**"],
+      "cache": false
+    },
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "format": {
+      "cache": false
     },
     "dev": {
+      "cache": false,
+      "persistent": true,
+      "inputs": ["$TURBO_DEFAULT$", "src/**"]
+    },
+    "start": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "start:dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "start:prod": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "@modern-router-management/types#build": {
+      "outputs": ["dist/**"]
+    },
+    "@modern-router-management/drivers#build": {
+      "dependsOn": ["@modern-router-management/types#build"],
+      "outputs": ["dist/**"]
+    },
+    "@modern-router-management/ui#build": {
+      "cache": false
+    },
+    "api#build": {
+      "dependsOn": ["@modern-router-management/types#build", "@modern-router-management/drivers#build"],
+      "outputs": ["dist/**"]
+    },
+    "web#build": {
+      "dependsOn": ["@modern-router-management/types#build", "@modern-router-management/ui#build"],
+      "outputs": ["dist/**", ".vercel/**"]
+    },
+    "api#dev": {
+      "dependsOn": ["@modern-router-management/types#build", "@modern-router-management/drivers#build"],
+      "cache": false,
+      "persistent": true
+    },
+    "web#dev": {
+      "dependsOn": ["@modern-router-management/types#build", "@modern-router-management/ui#build"],
       "cache": false,
       "persistent": true
     }
