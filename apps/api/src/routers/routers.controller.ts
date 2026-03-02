@@ -66,4 +66,10 @@ export class RoutersController {
     await this.routersService.reboot(id);
     return { ok: true };
   }
+
+  @Post(':id/internet/submit')
+  async submitInternet(@Param('id', ParseIntPipe) id: number) {
+    await this.routersService.submitInternet(id);
+    return { ok: true };
+  }
 }
