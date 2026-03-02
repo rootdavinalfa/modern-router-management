@@ -6,6 +6,7 @@ import {
   createRouter,
   fetchActiveRouter,
   fetchRouterStatus,
+  fetchRouters,
   type RouterStatusExtended,
   type WanConnection,
 } from '../lib/api'
@@ -15,6 +16,7 @@ import {
   PONOpticalModule,
   WANConnections,
   RouterSetupForm,
+  RouterSelector,
 } from '../components/dashboard'
 
 export const Route = createFileRoute('/')({ component: App })
@@ -46,13 +48,19 @@ const formatUptime = (uptimeSeconds: number): string => {
 function App() {
   const queryClient = useQueryClient()
   const [setupStatus, setSetupStatus] = useState<string | null>(null)
+  const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null)
+
+  const routersQuery = useQuery({
+    queryKey: ['routers'],
+    queryFn: fetchRouters,
+  })
 
   const activeRouterQuery = useQuery({
     queryKey: ['router', 'active'],
     queryFn: fetchActiveRouter,
   })
 
-  const routerId = activeRouterQuery.data?.id ?? null
+  const routerId = selectedRouterId ?? activeRouterQuery.data?.id ?? null
 
   const statusQuery = useQuery({
     queryKey: ['router', routerId, 'status'],
@@ -73,6 +81,10 @@ function App() {
       )
     },
   })
+
+  const handleSelectRouter = (routerId: number) => {
+    setSelectedRouterId(routerId)
+  }
 
   const statusSnapshot = useMemo((): StatusSnapshot => {
     if (!statusQuery.data) {
@@ -123,6 +135,12 @@ function App() {
       <section className="island-shell rise-in relative overflow-hidden rounded-4-xl px-6 py-10 sm:px-10 sm:py-12">
         <div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.28),transparent_66%)]" />
         <div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
+
+        <RouterSelector
+          routers={routersQuery.data ?? []}
+          selectedRouterId={routerId}
+          onSelectRouter={handleSelectRouter}
+        />
 
         <DashboardHeader
           model={statusSnapshot.model}
