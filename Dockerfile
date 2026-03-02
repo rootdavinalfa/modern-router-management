@@ -55,22 +55,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglx0 libx11-xcb1 libxcb-dri3-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package manifests for production install
-COPY package.json bun.lock* ./
-COPY apps/api/package.json ./apps/api/
-COPY apps/web/package.json ./apps/web/
-COPY packages/types/package.json ./packages/types/
-COPY packages/drivers/package.json ./packages/drivers/
-
-# Install production dependencies only (workspaces will link local packages)
-RUN bun install --production
-
 # Copy built artifacts from builder
 COPY --from=builder /build/apps/api/dist ./apps/api/dist
 COPY --from=builder /build/packages/types/dist ./packages/types/dist
 COPY --from=builder /build/packages/drivers/dist ./packages/drivers/dist
 COPY --from=builder /build/apps/web/dist ./apps/web/dist
 COPY --from=builder /root/.cache/ms-playwright ./ms-playwright
+
+# Copy package manifests and install dependencies
+COPY package.json bun.lock* ./
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY packages/types/package.json ./packages/types/
+COPY packages/drivers/package.json ./packages/drivers/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/ui/src ./packages/ui/src
+
+# Install dependencies (workspaces will link local packages)
+RUN bun install
 
 # Set Playwright browsers path
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
