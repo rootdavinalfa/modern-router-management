@@ -18,12 +18,14 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/types/package.json ./packages/types/
 COPY packages/drivers/package.json ./packages/drivers/
+COPY packages/ui/package.json ./packages/ui/
 
 # Copy source files
 COPY packages/types/tsconfig.json packages/types/tsconfig.build.json ./packages/types/
 COPY packages/types/src/ ./packages/types/src/
 COPY packages/drivers/tsconfig.json ./packages/drivers/
 COPY packages/drivers/src/ ./packages/drivers/src/
+COPY packages/ui/src/ ./packages/ui/src/
 COPY apps/api/nest-cli.json apps/api/tsconfig.build.json apps/api/tsconfig.json ./apps/api/
 COPY apps/api/src/ ./apps/api/src/
 COPY apps/web/tsconfig.json apps/web/vite.config.ts ./apps/web/
