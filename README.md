@@ -246,17 +246,13 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **Podman** or **Docker** installed
 - **PostgreSQL** (optional, can run in container)
 
-### Build the Image
+### Pull the Image
+
+The Docker image is automatically built and pushed to GitHub Container Registry (ghcr.io) via GitHub Actions on every push to main/develop branches and tags.
 
 ```bash
-# Build production image (includes both API and TanStack Start frontend)
-podman build -t modern-router-app:latest --target production .
-
-# The build includes:
-# - TypeScript compilation for all packages
-# - Playwright Chromium browser installation
-# - TanStack Start SSR server build
-# - Production dependencies only
+# Pull the latest image from ghcr.io
+docker pull ghcr.io/rootdavinalfa/modern-router-management:latest
 ```
 
 ### Run with Docker Compose (Recommended)
@@ -278,7 +274,7 @@ Access the application at **http://localhost:3000** (TanStack Start frontend) an
 
 **1. Start PostgreSQL:**
 ```bash
-podman run -d --name modern-router-db \
+docker run -d --name modern-router-db \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=12345678 \
   -e POSTGRES_DB=modern_router_mgmt \
@@ -304,11 +300,11 @@ EOF
 
 **4. Run the App Container:**
 ```bash
-podman run -d --name modern-router-app \
+docker run -d --name modern-router-app \
   -p 3000:3000 \
   -p 3001:3001 \
   --env-file .env.docker \
-  modern-router-app:latest
+  ghcr.io/rootdavinalfa/modern-router-management:latest
 ```
 
 ### Test the Deployment
@@ -324,7 +320,7 @@ curl http://localhost:3001/health
 curl http://localhost:3001/routers
 
 # Check container logs
-podman logs modern-router-app
+docker logs modern-router-app
 ```
 
 ### Container Architecture
