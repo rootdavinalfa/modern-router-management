@@ -1,0 +1,29 @@
+# Ingress configuration for external access
+# Requires ingress-nginx or similar ingress controller
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: modern-router-api-ingress
+  namespace: modern-router-mgmt
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.example.com
+      secretName: modern-router-api-tls
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: modern-router-api
+                port:
+                  name: http

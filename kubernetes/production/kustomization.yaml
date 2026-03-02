@@ -1,0 +1,58 @@
+# Production Kustomize configuration
+# Usage: kubectl apply -k kubernetes/production/
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: modern-router-mgmt
+
+resources:
+  - ../base
+
+# Production-specific patches
+patches:
+  # Scale API to 3 replicas
+  - target:
+      kind: Deployment
+      name: modern-router-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 1Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 500m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 2Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 2000m
+
+  # Scale PostgreSQL resources
+  - target:
+      kind: StatefulSet
+      name: postgresql
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 512Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 250m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 1Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 1000m
+
+# Production images
+images:
+  - name: ghcr.io/rootdavinalfa/modern-router-management
+    newTag: latest
+  - name: postgres
+    newTag: 16-alpine

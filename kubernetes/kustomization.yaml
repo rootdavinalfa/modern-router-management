@@ -1,0 +1,38 @@
+# Kustomize configuration for Modern Router Management
+# Usage: kubectl apply -k kubernetes/
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: modern-router-mgmt
+
+resources:
+  - namespace.yaml
+  - postgresql.yaml
+  - api-deployment.yaml
+  - ingress.yaml
+
+# Secrets should be created separately or using sealed-secrets
+# secretGenerator:
+#   - name: postgres-secret
+#     literals:
+#       - username=postgres
+#       - password=CHANGE_ME
+#       - database=modern_router_mgmt
+#       - connection-string=postgresql://postgres:CHANGE_ME@postgresql:5432/modern_router_mgmt
+#   - name: api-secret
+#     literals:
+#       - credentials-key=CHANGE_ME_ENCRYPTION_KEY
+
+# ConfigMap for non-sensitive configuration
+configMapGenerator:
+  - name: api-config
+    literals:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_ENGINE=postgres
+
+# Images configuration
+images:
+  - name: ghcr.io/rootdavinalfa/modern-router-management
+    newTag: latest

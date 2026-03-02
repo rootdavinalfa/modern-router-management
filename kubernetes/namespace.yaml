@@ -1,0 +1,9 @@
+# Modern Router Management - Kubernetes Base Deployment
+# Minimal deployment configuration for development/testing
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: modern-router-mgmt
+  labels:
+    app: modern-router-mgmt

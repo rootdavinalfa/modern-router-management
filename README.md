@@ -343,6 +343,55 @@ podman logs modern-router-api
 - PostgreSQL data is persisted in `postgres_data` volume
 - API container is stateless (no volumes needed)
 
+## Kubernetes Deployment
+
+For production deployments, Kubernetes manifests are provided in the [`kubernetes/`](kubernetes/) folder.
+
+### Quick Deploy
+
+```bash
+# Create secrets first (see kubernetes/README.md)
+kubectl apply -f kubernetes/secrets.yaml
+
+# Deploy everything
+kubectl apply -k kubernetes/
+
+# Check status
+kubectl get pods -n modern-router-mgmt
+```
+
+### Features
+
+- **Namespace isolation** - All resources in `modern-router-mgmt` namespace
+- **StatefulSet for PostgreSQL** - Persistent storage for database
+- **Deployment for API** - Scalable API with health checks
+- **Ingress ready** - TLS termination with cert-manager support
+- **Kustomize support** - Base and production overlays
+- **Resource limits** - CPU and memory limits configured
+- **Security contexts** - Non-root containers, read-only filesystem
+
+See [`kubernetes/README.md`](kubernetes/README.md) for complete documentation.
+
+## CI/CD
+
+GitHub Actions workflow is configured in [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml).
+
+### Pipeline Stages
+
+1. **Lint** - Code linting and formatting checks
+2. **Type Check** - TypeScript type checking
+3. **Build** - Build all packages
+4. **Test** - Run test suites
+5. **Docker Build** - Build and push container image
+6. **Deploy** - Deploy to Kubernetes (dev/prod environments)
+
+### Triggers
+
+- **Push to main** - Full pipeline + deploy to production (if tagged)
+- **Push to develop** - Full pipeline + deploy to development
+- **Pull Request** - Lint, type check, build, test
+- **Tags (v*)** - Production deployment with semantic versioning
+
 ## Acknowledgments
 
 - [NestJS](https://nestjs.com/) - Progressive Node.js framework
