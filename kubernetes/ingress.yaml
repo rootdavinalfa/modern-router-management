@@ -20,10 +20,27 @@ spec:
     - host: api.example.com
       http:
         paths:
+          # API routes - proxy to API port
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: modern-router-api
+                port:
+                  number: 3001
+          # Health check endpoint
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: modern-router-api
+                port:
+                  number: 3001
+          # Frontend - all other routes go to TanStack Start
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: modern-router-api
                 port:
-                  name: http
+                  number: 3000

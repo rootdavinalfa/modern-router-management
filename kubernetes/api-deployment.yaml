@@ -23,6 +23,8 @@ spec:
           ports:
             - name: http
               containerPort: 3001
+            - name: frontend
+              containerPort: 3000
           env:
             - name: NODE_ENV
               value: "production"
@@ -82,9 +84,12 @@ metadata:
     app: modern-router-api
 spec:
   ports:
-    - port: 80
+    - port: 3001
       targetPort: http
-      name: http
+      name: api
+    - port: 3000
+      targetPort: frontend
+      name: frontend
   selector:
     app: modern-router-api
   type: ClusterIP

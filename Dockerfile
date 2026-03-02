@@ -28,7 +28,6 @@ COPY apps/api/nest-cli.json apps/api/tsconfig.build.json apps/api/tsconfig.json 
 COPY apps/api/src/ ./apps/api/src/
 COPY apps/web/tsconfig.json apps/web/vite.config.ts apps/web/tailwind.config.js ./apps/web/
 COPY apps/web/src/ ./apps/web/src/
-COPY apps/web/index.html ./apps/web/
 
 # Install all dependencies (including dev for building)
 RUN bun install
