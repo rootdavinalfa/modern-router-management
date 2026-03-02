@@ -1,4 +1,9 @@
-import { Badge, Card, CardContent, CardHeader } from '@modern-router-management/ui'
+import {
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+} from '@modern-router-management/ui'
 import type { WanConnection } from '../../lib/api'
 
 interface WANConnectionCardProps {
@@ -22,7 +27,10 @@ function WANDetailItem({ label, value }: WANDetailItemProps) {
   )
 }
 
-export function WANConnectionCard({ connection, index }: WANConnectionCardProps) {
+export function WANConnectionCard({
+  connection,
+  index,
+}: WANConnectionCardProps) {
   const {
     name,
     type,
@@ -44,7 +52,8 @@ export function WANConnectionCard({ connection, index }: WANConnectionCardProps)
     gatewayV6,
   } = connection
 
-  const hasIPv6 = lla || gua || dnsV6 || connectionStatusV6 || uptimeV6 || gatewayV6
+  const hasIPv6 =
+    lla || gua || dnsV6 || connectionStatusV6 || uptimeV6 || gatewayV6
 
   return (
     <Card
@@ -100,14 +109,15 @@ export function WANConnectionCard({ connection, index }: WANConnectionCardProps)
               {gua && <WANDetailItem label="GUA" value={gua} />}
               {dnsV6 && <WANDetailItem label="DNS" value={dnsV6} />}
               {connectionStatusV6 && (
-                <WANDetailItem label="Connection Status" value={connectionStatusV6} />
+                <WANDetailItem
+                  label="Connection Status"
+                  value={connectionStatusV6}
+                />
               )}
               {uptimeV6 && (
                 <WANDetailItem label="IPv6 Uptime" value={uptimeV6} />
               )}
-              {gatewayV6 && (
-                <WANDetailItem label="Gateway" value={gatewayV6} />
-              )}
+              {gatewayV6 && <WANDetailItem label="Gateway" value={gatewayV6} />}
             </div>
           </div>
         )}

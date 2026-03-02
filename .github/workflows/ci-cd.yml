@@ -28,7 +28,7 @@ jobs:
         run: bun install
 
       - name: Check formatting (prettier)
-        run: bun run format:check
+        run: bun run format:check --ignore-path .prettierignore
 
       - name: Run ESLint (API)
         working-directory: apps/api

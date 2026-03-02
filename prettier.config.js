@@ -8,5 +8,6 @@
   "arrowParens": "always",
   "endOfLine": "lf",
   "plugins": [],
-  "overrides": []
+  "overrides": [],
+  "embeddedLanguageFormatting": "off"
 }

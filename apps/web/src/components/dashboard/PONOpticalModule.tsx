@@ -21,9 +21,16 @@ interface PONMetricCardProps {
   children?: ReactNode
 }
 
-function PONMetricCard({ label, animationDelay = 0, children }: PONMetricCardProps) {
+function PONMetricCard({
+  label,
+  animationDelay = 0,
+  children,
+}: PONMetricCardProps) {
   return (
-    <Card className="rise-in rounded-2xl p-4" style={{ animationDelay: `${animationDelay}ms` }}>
+    <Card
+      className="rise-in rounded-2xl p-4"
+      style={{ animationDelay: `${animationDelay}ms` }}
+    >
       <CardContent>
         <p className="island-kicker mb-2">{label}</p>
         {children}
@@ -32,8 +39,14 @@ function PONMetricCard({ label, animationDelay = 0, children }: PONMetricCardPro
   )
 }
 
-export function PONOpticalModule({ ponData, signalStrength }: PONOpticalModuleProps) {
-  const signalPercentage = Math.max(0, Math.min(100, ((ponData.rxPower + 28) / 20) * 100))
+export function PONOpticalModule({
+  ponData,
+  signalStrength,
+}: PONOpticalModuleProps) {
+  const signalPercentage = Math.max(
+    0,
+    Math.min(100, ((ponData.rxPower + 28) / 20) * 100),
+  )
 
   return (
     <div className="mt-6">

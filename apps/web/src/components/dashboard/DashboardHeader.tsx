@@ -6,7 +6,11 @@ interface DashboardHeaderProps {
   signalStrength: number
 }
 
-export function DashboardHeader({ model, status, signalStrength }: DashboardHeaderProps) {
+export function DashboardHeader({
+  model,
+  status,
+  signalStrength,
+}: DashboardHeaderProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div>
@@ -15,8 +19,8 @@ export function DashboardHeader({ model, status, signalStrength }: DashboardHead
           {model} Control Center
         </h1>
         <p className="max-w-2xl text-base text-[var(--sea-ink-soft)] sm:text-lg">
-          Live status snapshots, connected devices, and WiFi tuning in a
-          single, type-safe surface.
+          Live status snapshots, connected devices, and WiFi tuning in a single,
+          type-safe surface.
         </p>
       </div>
       <div className="flex flex-wrap gap-3">

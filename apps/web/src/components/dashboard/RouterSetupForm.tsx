@@ -4,7 +4,14 @@ import {
   routerCreateSchema,
   type RouterCreateDTO,
 } from '@modern-router-management/types/router'
-import { Button, Card, CardContent, CardHeader, Input, Label } from '@modern-router-management/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Input,
+  Label,
+} from '@modern-router-management/ui'
 
 interface RouterSetupFormProps {
   onSubmit: (values: RouterCreateDTO) => void
@@ -12,7 +19,11 @@ interface RouterSetupFormProps {
   status?: string | null
 }
 
-export function RouterSetupForm({ onSubmit, isPending, status }: RouterSetupFormProps) {
+export function RouterSetupForm({
+  onSubmit,
+  isPending,
+  status,
+}: RouterSetupFormProps) {
   const form = useForm<RouterCreateDTO>({
     resolver: zodResolver(routerCreateSchema),
     defaultValues: {
@@ -35,10 +46,7 @@ export function RouterSetupForm({ onSubmit, isPending, status }: RouterSetupForm
         </h2>
       </CardHeader>
       <CardContent>
-        <form
-          className="space-y-4"
-          onSubmit={form.handleSubmit(onSubmit)}
-        >
+        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
           <input
             type="hidden"
             value="zte-f6600p"
@@ -78,9 +86,7 @@ export function RouterSetupForm({ onSubmit, isPending, status }: RouterSetupForm
           </Button>
 
           {status && (
-            <p className="text-xs text-[var(--sea-ink-soft)]">
-              {status}
-            </p>
+            <p className="text-xs text-[var(--sea-ink-soft)]">{status}</p>
           )}
         </form>
       </CardContent>

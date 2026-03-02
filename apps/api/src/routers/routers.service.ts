@@ -1,4 +1,10 @@
-import { Inject, Injectable, NotFoundException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { desc, eq } from 'drizzle-orm';
 import {
   routerCreateSchema,
@@ -46,7 +52,10 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
         await cached.driver.close();
         console.log(`[RoutersService] Closed driver for router ${routerId}`);
       } catch (error) {
-        console.error(`[RoutersService] Error closing driver for router ${routerId}:`, error);
+        console.error(
+          `[RoutersService] Error closing driver for router ${routerId}:`,
+          error,
+        );
       }
     }
     this.driverCache.clear();
@@ -65,7 +74,9 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
           .limit(1);
 
         if (!credentials) {
-          console.warn(`[RoutersService] No credentials found for router ${router.id}`);
+          console.warn(
+            `[RoutersService] No credentials found for router ${router.id}`,
+          );
           continue;
         }
 
@@ -95,9 +106,14 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
           username,
         });
 
-        console.log(`[RoutersService] Initialized and authenticated driver for router ${router.id} (${router.host})`);
+        console.log(
+          `[RoutersService] Initialized and authenticated driver for router ${router.id} (${router.host})`,
+        );
       } catch (error) {
-        console.error(`[RoutersService] Failed to initialize driver for router ${router.id}:`, error);
+        console.error(
+          `[RoutersService] Failed to initialize driver for router ${router.id}:`,
+          error,
+        );
       }
     }
   }
@@ -195,7 +211,9 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
       username: payload.username,
     });
 
-    console.log(`[RoutersService] Initialized and authenticated driver for new router ${router.id} (${router.host})`);
+    console.log(
+      `[RoutersService] Initialized and authenticated driver for new router ${router.id} (${router.host})`,
+    );
 
     return {
       id: router.id,
@@ -294,15 +312,18 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
       return await handler(cached.driver);
     } catch (error) {
       // If error might be due to session expiration, try to re-authenticate
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const isAuthError = 
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isAuthError =
         errorMessage.toLowerCase().includes('login') ||
         errorMessage.toLowerCase().includes('auth') ||
         errorMessage.toLowerCase().includes('session') ||
         errorMessage.toLowerCase().includes('unauthorized');
 
       if (isAuthError) {
-        console.log(`[RoutersService] Re-authenticating router ${routerId} due to potential session error`);
+        console.log(
+          `[RoutersService] Re-authenticating router ${routerId} due to potential session error`,
+        );
         await cached.driver.reauthenticate();
         return await handler(cached.driver);
       }
