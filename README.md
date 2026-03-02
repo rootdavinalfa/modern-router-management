@@ -249,14 +249,13 @@ MIT License - see [LICENSE](LICENSE) for details.
 ### Build the Image
 
 ```bash
-# Build production image (includes both API and Frontend)
+# Build production image (includes both API and TanStack Start frontend)
 podman build -t modern-router-app:latest --target production .
 
 # The build includes:
 # - TypeScript compilation for all packages
 # - Playwright Chromium browser installation
-# - Frontend web application build
-# - Nginx for serving static files
+# - TanStack Start SSR server build
 # - Production dependencies only
 ```
 
@@ -273,7 +272,7 @@ docker-compose logs -f app
 docker-compose down
 ```
 
-Access the application at **http://localhost** (frontend) and **http://localhost:3001** (API).
+Access the application at **http://localhost:3000** (TanStack Start frontend) and **http://localhost:3001** (API).
 
 ### Run Manually
 
@@ -306,7 +305,7 @@ EOF
 **4. Run the App Container:**
 ```bash
 podman run -d --name modern-router-app \
-  -p 80:80 \
+  -p 3000:3000 \
   -p 3001:3001 \
   --env-file .env.docker \
   modern-router-app:latest
@@ -315,14 +314,14 @@ podman run -d --name modern-router-app \
 ### Test the Deployment
 
 ```bash
-# Access frontend
-curl http://localhost
+# Access frontend (TanStack Start SSR)
+curl http://localhost:3000
 
 # Check API health endpoint
 curl http://localhost:3001/health
 
 # List routers via API
-curl http://localhost/api/routers
+curl http://localhost:3001/routers
 
 # Check container logs
 podman logs modern-router-app
@@ -331,7 +330,7 @@ podman logs modern-router-app
 ### Container Architecture
 
 The single container includes:
-- **Nginx** (port 80): Serves frontend static files, proxies /api/* to backend
+- **TanStack Start Server** (port 3000): SSR frontend with React Router
 - **NestJS API** (port 3001): Backend API server
 - **Playwright Chromium**: Browser automation for router scraping
 
@@ -408,7 +407,7 @@ docker pull ghcr.io/rootdavinalfa/modern-router-management:latest
 
 # Run with PostgreSQL
 docker run -d --name modern-router-app \
-  -p 80:80 \
+  -p 3000:3000 \
   -p 3001:3001 \
   -e NODE_ENV=production \
   -e DB_ENGINE=postgres \
@@ -418,7 +417,7 @@ docker run -d --name modern-router-app \
 ```
 
 Access:
-- **Frontend**: http://localhost
+- **Frontend**: http://localhost:3000 (TanStack Start SSR)
 - **API**: http://localhost:3001
 
 For Kubernetes deployment, see [`kubernetes/README.md`](kubernetes/README.md).

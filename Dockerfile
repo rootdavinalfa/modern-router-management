@@ -1,5 +1,5 @@
 # Multi-stage optimized Dockerfile for Modern Router Management
-# Includes both API server and Frontend web application
+# Includes both API server and TanStack Start frontend
 
 # Build stage - compile all packages
 FROM oven/bun:1.2.21 AS builder
@@ -52,7 +52,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgbm1 libasound2 libatspi2.0-0 \
     libgstreamer1.0-0 libgstreamer-gl1.0-0 libgtk-3-0 libegl1 \
     libglx0 libx11-xcb1 libxcb-dri3-0 \
-    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package manifests for production install
@@ -69,14 +68,11 @@ RUN bun install --production
 COPY --from=builder /build/apps/api/dist ./apps/api/dist
 COPY --from=builder /build/packages/types/dist ./packages/types/dist
 COPY --from=builder /build/packages/drivers/dist ./packages/drivers/dist
-COPY --from=builder /build/apps/web/dist/client ./apps/web/dist/client
+COPY --from=builder /build/apps/web/dist ./apps/web/dist
 COPY --from=builder /root/.cache/ms-playwright ./ms-playwright
 
 # Set Playwright browsers path
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create data directory and set permissions
 RUN mkdir -p /app/data && chown -R bun:bun /app
@@ -88,10 +84,10 @@ ENV DB_ENGINE=postgres
 USER bun
 
 EXPOSE 3001
-EXPOSE 80
+EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD bun run -e "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))" || exit 1
 
-# Start both API and nginx
-CMD ["sh", "-c", "bun run apps/api/dist/main.js & nginx -g 'daemon off;'"]
+# Start both API and TanStack Start server
+CMD ["sh", "-c", "bun run apps/api/dist/main.js & PORT=3000 bun run apps/web/dist/server/server.js"]
