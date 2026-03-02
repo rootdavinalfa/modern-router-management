@@ -382,15 +382,33 @@ GitHub Actions workflow is configured in [`.github/workflows/ci-cd.yml`](.github
 2. **Type Check** - TypeScript type checking
 3. **Build** - Build all packages
 4. **Test** - Run test suites
-5. **Docker Build** - Build and push container image
-6. **Deploy** - Deploy to Kubernetes (dev/prod environments)
+5. **Docker Build & Push** - Build and push container image to ghcr.io
 
 ### Triggers
 
-- **Push to main** - Full pipeline + deploy to production (if tagged)
-- **Push to develop** - Full pipeline + deploy to development
+- **Push to main/develop** - Full pipeline + build/push Docker image
+- **Push tags (v*)** - Full pipeline + build/push with semantic version tags
 - **Pull Request** - Lint, type check, build, test
-- **Tags (v*)** - Production deployment with semantic versioning
+
+### Manual Deployment
+
+After the Docker image is pushed to the registry, you can deploy manually:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/rootdavinalfa/modern-router-management:latest
+
+# Run with your configuration
+docker run -d --name modern-router-api \
+  -p 3001:3001 \
+  -e NODE_ENV=production \
+  -e DB_ENGINE=postgres \
+  -e DATABASE_URL=postgresql://user:pass@host:5432/db \
+  -e ROUTER_CREDENTIALS_KEY=your-key \
+  ghcr.io/rootdavinalfa/modern-router-management:latest
+```
+
+For Kubernetes deployment, see [`kubernetes/README.md`](kubernetes/README.md).
 
 ## Acknowledgments
 
