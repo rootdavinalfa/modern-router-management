@@ -7,7 +7,9 @@ import {
   fetchActiveRouter,
   fetchRouterStatus,
   fetchRouters,
-  type RouterStatusExtended,
+  fetchSystemStatus,
+  fetchWANStatus,
+  fetchPONStatus,
   type WanConnection,
 } from '../lib/api'
 import {
@@ -36,12 +38,15 @@ interface StatusSnapshot {
   current: number
   onuState: string
   wanConnections: WanConnection[]
+  cpuUsage: number
+  memoryUsage: number
+  powerOnTime: number
 }
 
-const formatUptime = (uptimeSeconds: number): string => {
-  const days = Math.floor(uptimeSeconds / 86400)
-  const hours = Math.floor((uptimeSeconds % 86400) / 3600)
-  const minutes = Math.floor((uptimeSeconds % 3600) / 60)
+const formatUptime = (seconds: number): string => {
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
 
   return `${days}d ${hours}h ${minutes}m`
 }
@@ -63,10 +68,26 @@ function App() {
 
   const routerId = selectedRouterId ?? activeRouterQuery.data?.id ?? null
 
-  const statusQuery = useQuery({
-    queryKey: ['router', routerId, 'status'],
-    queryFn: () => fetchRouterStatus(routerId as number),
+  // Sequential queries: system -> WAN -> PON
+  // Each query depends on the previous one completing first
+  const systemStatusQuery = useQuery({
+    queryKey: ['router', routerId, 'system-status'],
+    queryFn: () => fetchSystemStatus(routerId as number),
     enabled: routerId !== null,
+    refetchInterval: 10000,
+  })
+
+  const wanStatusQuery = useQuery({
+    queryKey: ['router', routerId, 'wan-status'],
+    queryFn: () => fetchWANStatus(routerId as number),
+    enabled: routerId !== null && systemStatusQuery.isSuccess,
+    refetchInterval: 10000,
+  })
+
+  const ponStatusQuery = useQuery({
+    queryKey: ['router', routerId, 'pon-status'],
+    queryFn: () => fetchPONStatus(routerId as number),
+    enabled: routerId !== null && systemStatusQuery.isSuccess && wanStatusQuery.isSuccess,
     refetchInterval: 10000,
   })
 
@@ -88,7 +109,7 @@ function App() {
   }
 
   const statusSnapshot = useMemo((): StatusSnapshot => {
-    if (!statusQuery.data) {
+    if (!systemStatusQuery.data || !ponStatusQuery.data || !wanStatusQuery.data) {
       return {
         model: 'ZTE F6600P',
         firmware: 'unknown',
@@ -103,28 +124,46 @@ function App() {
         current: 0,
         onuState: 'Unknown',
         wanConnections: [],
+        cpuUsage: 0,
+        memoryUsage: 0,
+        powerOnTime: 0,
       }
     }
 
-    const extendedData = statusQuery.data as RouterStatusExtended
-    const ponData = extendedData.ponData
+    // Find INTERNET connection for primary status
+    const internetConnection = wanStatusQuery.data.find((w) => w.name === 'INTERNET')
+    const wanIp = internetConnection?.ipAddress.split('/')[0] || '0.0.0.0'
+    const uptimeSeconds = internetConnection?.uptimeSeconds || 0
+    const online = !!internetConnection
+
+    // Calculate signal strength from optical RX power (typical range: -8 to -28 dBm)
+    // Map to 0-100 scale: -8 dBm = 100%, -28 dBm = 0%
+    const signalStrength = ponStatusQuery.data.rxPower
+      ? Math.max(
+          0,
+          Math.min(100, Math.round(((ponStatusQuery.data.rxPower + 28) / 20) * 100)),
+        )
+      : 0
 
     return {
-      model: statusQuery.data.model,
-      firmware: statusQuery.data.firmware,
-      uptime: formatUptime(statusQuery.data.uptimeSeconds),
-      wanIp: statusQuery.data.wanIp,
-      signal: statusQuery.data.signalStrength ?? 0,
-      status: statusQuery.data.online ? 'Online' : 'Offline',
-      rxPower: (ponData?.rxPower as number) ?? 0,
-      txPower: (ponData?.txPower as number) ?? 0,
-      temperature: (ponData?.temperature as number) ?? 0,
-      voltage: (ponData?.voltage as number) ?? 0,
-      current: (ponData?.current as number) ?? 0,
-      onuState: (ponData?.onuState as string) ?? 'Unknown',
-      wanConnections: extendedData.wanConnections || [],
+      model: systemStatusQuery.data.model,
+      firmware: systemStatusQuery.data.softwareVersion,
+      uptime: formatUptime(systemStatusQuery.data.powerOnTime),
+      wanIp,
+      signal: signalStrength,
+      status: online ? 'Online' : 'Offline',
+      rxPower: ponStatusQuery.data.rxPower,
+      txPower: ponStatusQuery.data.txPower,
+      temperature: ponStatusQuery.data.temperature,
+      voltage: ponStatusQuery.data.voltage,
+      current: ponStatusQuery.data.current,
+      onuState: ponStatusQuery.data.onuState,
+      wanConnections: wanStatusQuery.data,
+      cpuUsage: systemStatusQuery.data.cpuUsage,
+      memoryUsage: systemStatusQuery.data.memoryUsage,
+      powerOnTime: systemStatusQuery.data.powerOnTime,
     }
-  }, [statusQuery.data])
+  }, [systemStatusQuery.data, ponStatusQuery.data, wanStatusQuery.data])
 
   const handleSetup = (values: RouterCreateDTO) => {
     setSetupStatus(null)

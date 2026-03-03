@@ -57,3 +57,63 @@ export const routerSummarySchema = z.object({
 });
 
 export type RouterSummaryDTO = z.infer<typeof routerSummarySchema>;
+
+export const systemStatusSchema = z.object({
+  manufacturer: z.string().min(1),
+  model: z.string().min(1),
+  hardwareVersion: z.string().min(1),
+  softwareVersion: z.string().min(1),
+  softwareVersionExtent: z.string().min(1),
+  bootVersion: z.string().min(1),
+  serialNumber: z.string().min(1),
+  onuAlias: z.string().min(1),
+  verDate: z.string().min(1),
+  cpuUsage: z.number().int().min(0).max(100),
+  memoryUsage: z.number().int().min(0).max(100),
+  powerOnTime: z.number().int().nonnegative(),
+});
+
+export type SystemStatusDTO = z.infer<typeof systemStatusSchema>;
+
+export const ponStatusSchema = z.object({
+  rxPower: z.number(),
+  txPower: z.number(),
+  voltage: z.number().int(),
+  temperature: z.number(),
+  current: z.number(),
+  rfTxPower: z.number().int(),
+  videoRxPower: z.number().int(),
+  onuState: z.string().min(1),
+  onuId: z.number().int(),
+  losInfo: z.number().int(),
+  catvEnable: z.number().int(),
+  ponOnTime: z.number().int().nonnegative(),
+});
+
+export type PONStatusDTO = z.infer<typeof ponStatusSchema>;
+
+export const wanConnectionSchema = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  ipVersion: z.string().min(1),
+  nat: z.string().min(1),
+  ipAddress: z.string().min(1),
+  dns: z.string().min(1),
+  gateway: z.string().min(1),
+  connectionStatus: z.string().min(1),
+  uptime: z.string().min(1),
+  uptimeSeconds: z.number().int().nonnegative(),
+  disconnectReason: z.string().min(1),
+  macAddress: z.string().min(1),
+  vlanId: z.string().min(1),
+  isPrivate: z.boolean(),
+  lla: z.string().min(1).optional(),
+  gua: z.string().min(1).optional(),
+  dnsV6: z.string().min(1).optional(),
+  connectionStatusV6: z.string().min(1).optional(),
+  uptimeV6: z.string().min(1).optional(),
+  uptimeV6Seconds: z.number().int().nonnegative().optional(),
+  gatewayV6: z.string().min(1).optional(),
+});
+
+export type WanConnectionDTO = z.infer<typeof wanConnectionSchema>;

@@ -13,6 +13,9 @@ import {
   type RouterSummaryDTO,
   type WifiConfigDTO,
   type DeviceDTO,
+  type SystemStatusDTO,
+  type PONStatusDTO,
+  type WanConnectionDTO,
 } from '@modern-router-management/types/router';
 import { ZteF6600pDriver } from '@modern-router-management/drivers';
 import { DATABASE_CONNECTION, type DatabaseProvider } from '../db/db.module';
@@ -247,6 +250,18 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
 
   async submitInternet(routerId: number): Promise<void> {
     await this.withDriver(routerId, (driver) => driver.submitInternet());
+  }
+
+  async getSystemStatus(routerId: number): Promise<SystemStatusDTO> {
+    return this.withDriver(routerId, (driver) => driver.getSystemStatusDetailed());
+  }
+
+  async getWANStatus(routerId: number): Promise<WanConnectionDTO[]> {
+    return this.withDriver(routerId, (driver) => driver.getWANStatus());
+  }
+
+  async getPONStatus(routerId: number): Promise<PONStatusDTO> {
+    return this.withDriver(routerId, (driver) => driver.getPONStatus());
   }
 
   private async withDriver<T>(

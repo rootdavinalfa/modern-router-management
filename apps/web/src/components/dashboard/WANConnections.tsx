@@ -1,9 +1,9 @@
 import { Card, CardContent } from '@modern-router-management/ui'
 import { WANConnectionCard } from './WANConnectionCard'
-import type { WanConnection } from '../../lib/api'
+import type { WanConnectionDTO } from '@modern-router-management/types/router'
 
 interface WANConnectionsProps {
-  connections: WanConnection[]
+  connections: WanConnectionDTO[]
 }
 
 export function WANConnections({ connections }: WANConnectionsProps) {

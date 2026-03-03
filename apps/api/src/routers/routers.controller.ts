@@ -72,4 +72,19 @@ export class RoutersController {
     await this.routersService.submitInternet(id);
     return { ok: true };
   }
+
+  @Get(':id/system-status')
+  async getSystemStatus(@Param('id', ParseIntPipe) id: number) {
+    return this.routersService.getSystemStatus(id);
+  }
+
+  @Get(':id/wan-status')
+  async getWANStatus(@Param('id', ParseIntPipe) id: number) {
+    return this.routersService.getWANStatus(id);
+  }
+
+  @Get(':id/pon-status')
+  async getPONStatus(@Param('id', ParseIntPipe) id: number) {
+    return this.routersService.getPONStatus(id);
+  }
 }

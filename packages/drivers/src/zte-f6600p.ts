@@ -34,7 +34,38 @@ export type WanConnection = {
   dnsV6?: string;
   connectionStatusV6?: string;
   uptimeV6?: string;
+  uptimeV6Seconds?: number;
   gatewayV6?: string;
+};
+
+export type SystemStatus = {
+  manufacturer: string;
+  model: string;
+  hardwareVersion: string;
+  softwareVersion: string;
+  softwareVersionExtent: string;
+  bootVersion: string;
+  serialNumber: string;
+  onuAlias: string;
+  verDate: string;
+  cpuUsage: number;
+  memoryUsage: number;
+  powerOnTime: number;
+};
+
+export type PONStatus = {
+  rxPower: number;
+  txPower: number;
+  voltage: number;
+  temperature: number;
+  current: number;
+  rfTxPower: number;
+  videoRxPower: number;
+  onuState: string;
+  onuId: number;
+  losInfo: number;
+  catvEnable: number;
+  ponOnTime: number;
 };
 
 export class ZteF6600pDriver implements RouterDriver {
@@ -73,6 +104,9 @@ export class ZteF6600pDriver implements RouterDriver {
     // Check if already logged in by looking for login page elements
     const hasLogin = await page.$("#loginWrapper");
     if (!hasLogin) {
+      console.log('[ZteF6600pDriver] Already logged in, checking cookies...');
+      const cookies = await page.context().cookies();
+      console.log('[ZteF6600pDriver] Cookies on already logged in session:', JSON.stringify(cookies, null, 2));
       this.authenticated = true;
       return true;
     }
@@ -114,6 +148,17 @@ export class ZteF6600pDriver implements RouterDriver {
       throw new Error(message || "Login failed");
     }
 
+    // Log cookies after successful login
+    const cookies = await page.context().cookies();
+    console.log('[ZteF6600pDriver] Cookies after successful login:', JSON.stringify(cookies, null, 2));
+
+    const sidCookie = cookies.find(c => c.name === 'SID');
+    if (sidCookie) {
+      console.log('[ZteF6600pDriver] SID cookie found:', `${sidCookie.value.substring(0, 20)}...`);
+    } else {
+      console.log('[ZteF6600pDriver] WARNING: SID cookie NOT found after login!');
+    }
+
     this.authenticated = true;
     return true;
   }
@@ -127,183 +172,394 @@ export class ZteF6600pDriver implements RouterDriver {
     return this.authenticate();
   }
 
-  async getSystemStatus(): Promise<
-    RouterStatusDTO & {
-      ponData: Record<string, unknown>;
-      wanConnections: WanConnection[];
-    }
-  > {
+  /**
+   * Make an authenticated XHR request to a router endpoint.
+   * Executes the request within the page context to use the browser's cookies.
+   */
+  private async makeAuthenticatedRequest(url: string, preflightUrl?: string): Promise<string> {
     const page = await this.getPage();
 
-    // Navigate to Internet → Status → PON Inform
-    await page.getByRole("link", { name: "Internet" }).click();
-    await page.getByRole("link", { name: "Status" }).click();
-    await page.locator("#ponopticalinfo").click();
+    // Ensure we're authenticated before making requests
+    if (!this.authenticated) {
+      console.log('[ZteF6600pDriver] Not authenticated, attempting to authenticate...');
+      await this.authenticate();
+    }
 
-    // Wait for PON info panel to load
-    await page.waitForSelector("#PonInfoOptical_container", { timeout: 10000 });
+    console.log('[ZteF6600pDriver] Request URL:', url);
 
-    // Extract PON optical module data
-    const ponData = await page.evaluate(() => {
-      const getEl = (id: string) => document.getElementById(id);
-      const getText = (id: string) => getEl(id)?.textContent?.trim() || "";
+    // Parse URL to get hostname
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
 
-      return {
-        onuState: getText("RegStatus"),
-        rxPower: parseFloat(getText("RxPower")) || 0,
-        txPower: parseFloat(getText("TxPower")) || 0,
-        voltage: parseInt(getText("Volt")) || 0,
-        current: parseFloat(getText("Current")) || 0,
-        temperature: parseFloat(getText("Temp")) || 0,
-      };
+    // Get current URL after navigation
+    const currentUrl = page.url();
+    console.log('[ZteF6600pDriver] Current page URL:', currentUrl);
+
+    // Get cookies from the page context for logging
+    const cookies = await page.context().cookies();
+    console.log('[ZteF6600pDriver] All cookies in context:', JSON.stringify(cookies, null, 2));
+
+    // Ensure required ZTE cookies are set
+    const requiredCookies = [
+      { name: '_TESTCOOKIESUPPORT', value: '1' },
+      { name: 'SID', required: true },
+    ];
+
+    const cookieNames = cookies.map(c => c.name);
+    console.log('[ZteF6600pDriver] Cookie names found:', cookieNames);
+
+    for (const reqCookie of requiredCookies) {
+      if ('required' in reqCookie && reqCookie.required && !cookieNames.includes(reqCookie.name)) {
+        console.log(`[ZteF6600pDriver] Required cookie ${reqCookie.name} is missing!`);
+      }
+      const existingCookie = cookies.find(c => c.name === reqCookie.name);
+      if (existingCookie) {
+        console.log(`[ZteF6600pDriver] ${reqCookie.name} = ${existingCookie.value.substring(0, 20)}...`);
+      }
+    }
+
+    // Execute fetch within the page context to use browser's cookies automatically
+    page.on('console', msg => {
+      console.log('Browser console:', msg.text());
     });
 
-    // Click on Ethernet WAN Status
-    await page.locator("#ethWanStatus").click();
-
-    // Wait for Ethernet state device container to load
-    await page.waitForSelector("#EthStateDev_container", { timeout: 10000 });
-
-    // Extract all WAN connections
-    const wanConnections = await page.evaluate(() => {
-      const connections: WanConnection[] = [];
-
-      // Find all template_EthStateDev_N divs (N is index)
-      const templates = document.querySelectorAll(
-        '[id^="template_EthStateDev_"]',
-      );
-
-      // Helper function to check if an IP address is private
-      const isPrivateIp = (ipWithCidr: string): boolean => {
-        const ip = ipWithCidr.split("/")[0];
-        const parts = ip.split(".").map((p) => parseInt(p, 10));
-
-        if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
-          return false;
-        }
-
-        const [a, b, c, d] = parts;
-
-        // 10.0.0.0/8
-        if (a === 10) return true;
-
-        // 172.16.0.0/12
-        if (a === 172 && b >= 16 && b <= 31) return true;
-
-        // 192.168.0.0/16
-        if (a === 192 && b === 16) return true;
-
-        // 127.0.0.0/8 (loopback)
-        if (a === 127) return true;
-
-        // 100.64.0.0/10 (CGNAT)
-        if (a === 100 && b >= 64 && b <= 127) return true;
-
-        // 169.254.0.0/16 (link-local)
-        if (a === 169 && b === 254) return true;
-
-        return false;
-      };
-
-      for (const template of templates) {
-        const id = template.id;
-        // Skip the hidden template without index
-        if (id === "template_EthStateDev") continue;
-
-        const index = id.replace("template_EthStateDev_", "");
-
-        // Helper to get element text by id
-        const getText = (fieldId: string) => {
-          const el = document.getElementById(`${fieldId}:${index}`);
-          return el?.textContent?.trim() || "";
-        };
-
-        // Helper to get hidden input value by id
-        const getHidden = (fieldId: string) => {
-          const el = document.getElementById(
-            `${fieldId}:${index}`,
-          ) as HTMLInputElement | null;
-          return el?.value || "";
-        };
-
-        const connStatus = getText("cConnStatus");
-        const upTimeText = getText("cUpTime");
-
-        // Parse uptime (format: "72 h 55 min 38 s")
-        const hoursMatch = upTimeText.match(/(\d+)\s*h/);
-        const minsMatch = upTimeText.match(/(\d+)\s*min/);
-        const secsMatch = upTimeText.match(/(\d+)\s*s/);
-
-        const uptimeSeconds =
-          (hoursMatch ? parseInt(hoursMatch[1]) * 3600 : 0) +
-          (minsMatch ? parseInt(minsMatch[1]) * 60 : 0) +
-          (secsMatch ? parseInt(secsMatch[1]) : 0);
-
-        const ipAddress = getText("cIPAddress");
-
-        const conn: WanConnection = {
-          name: getText("WANCName"),
-          type: getText("cRouteMode"),
-          ipVersion: getText("cIpMode"),
-          nat: getText("cIsNAT"),
-          ipAddress,
-          dns: getText("cDNS"),
-          gateway: getText("cGateWay"),
-          connectionStatus: connStatus,
-          uptime: upTimeText,
-          uptimeSeconds,
-          disconnectReason: getText("cConnError"),
-          macAddress: getText("cWorkIFMac"),
-          vlanId: getHidden("VLANID"),
-          isPrivate: isPrivateIp(ipAddress),
-        };
-
-        // IPv6 fields (if available)
-        const lla = getText("cLLA");
-        const gua = getText("cGuaNum");
-        const dnsV6 = getText("cDnsv6");
-        const connStatusV6 = getText("cConnStatus6");
-        const uptimeV6 = getText("cUpTimeV6");
-        const gatewayV6 = getHidden("Gateway6");
-
-        if (lla) conn.lla = lla;
-        if (gua) conn.gua = gua;
-        if (dnsV6) conn.dnsV6 = dnsV6;
-        if (connStatusV6) conn.connectionStatusV6 = connStatusV6;
-        if (uptimeV6) conn.uptimeV6 = uptimeV6;
-        if (gatewayV6 && gatewayV6 !== "NULL") conn.gatewayV6 = gatewayV6;
-
-        connections.push(conn);
+    const content = await page.evaluate(async ({ requestUrl, preflightUrl }: { requestUrl: string; preflightUrl: string | null }) => {
+      // Make preflight request if provided (required for ZTE router)
+      if (preflightUrl) {
+        const preflightResponse = await fetch(preflightUrl, {
+          headers: {
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9",
+            "x-requested-with": "XMLHttpRequest"
+          },
+          "method": "GET",
+          "mode": "cors",
+          "credentials": "include"
+        });
+        console.log('[ZteF6600pDriver] Preflight response:', preflightResponse.status);
       }
 
-      return connections;
-    });
+      const response = await fetch(requestUrl, {
+        method: 'GET',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Fetch failed with status ${response.status}`);
+      }
+
+      return response.text();
+    }, { requestUrl: url, preflightUrl: preflightUrl || null });
+
+    console.log('[ZteF6600pDriver] Response content:', content);
+
+    return content;
+  }
+
+  /**
+   * Get system information using direct HTTP endpoint.
+   * Returns device info, CPU/memory usage, and power-on time.
+   */
+  async getSystemStatusDetailed(): Promise<SystemStatus> {
+    const timestamp = Date.now();
+    const url = `${this.getBaseUrl()}/?_type=menuData&_tag=devmgr_statusmgr_lua.lua&_=${timestamp}`;
+    const preflightUrl = `${this.getBaseUrl()}/?_type=menuView&_tag=statusMgr&Menu3Location=0`;
+
+    const content = await this.makeAuthenticatedRequest(url, preflightUrl);
+    console.log('[ZteF6600pDriver] System Status XML Response:', content);
+
+    // Parse XML response
+    const systemStatus = this.parseSystemStatusXML(content);
+
+    return systemStatus;
+  }
+
+  /**
+   * Get system status (RouterDriver interface implementation).
+   * Combines system, WAN, and PON data for backward compatibility.
+   */
+  async getSystemStatus(): Promise<RouterStatusDTO> {
+    const [systemStatus, wanConnections, ponStatus] = await Promise.all([
+      this.getSystemStatusDetailed(),
+      this.getWANStatus(),
+      this.getPONStatus(),
+    ]);
+
+    // Find INTERNET connection for primary status
+    const internetConnection = wanConnections.find((w) => w.name === "INTERNET");
+    const wanIp = internetConnection?.ipAddress.split("/")[0] || "0.0.0.0";
+    const uptimeSeconds = internetConnection?.uptimeSeconds || 0;
+    const online = !!internetConnection;
 
     // Calculate signal strength from optical RX power (typical range: -8 to -28 dBm)
     // Map to 0-100 scale: -8 dBm = 100%, -28 dBm = 0%
-    const signalStrength = ponData.rxPower
+    const signalStrength = ponStatus.rxPower
       ? Math.max(
         0,
-        Math.min(100, Math.round(((ponData.rxPower + 28) / 20) * 100)),
+        Math.min(100, Math.round(((ponStatus.rxPower + 28) / 20) * 100)),
       )
       : undefined;
 
-    // Find first connected WAN for primary status
-    const connectedWan = wanConnections.find((w) => w.name === "INTERNET");
-    const wanIp = connectedWan?.ipAddress?.split("/")[0] || "0.0.0.0";
-    const uptimeSeconds = connectedWan?.uptimeSeconds || 0;
-    const online = !!connectedWan;
-
     return {
-      model: "ZTE F6600P",
-      firmware: "unknown",
+      model: systemStatus.model,
+      firmware: systemStatus.softwareVersion,
       uptimeSeconds,
       online,
       wanIp,
       signalStrength,
       supports5Ghz: true,
-      ponData,
-      wanConnections,
+    };
+  }
+
+  /**
+   * Get WAN information using direct HTTP endpoint.
+   * Returns all WAN connections with their status.
+   */
+  async getWANStatus(): Promise<WanConnection[]> {
+    const timestamp = Date.now();
+    const url = `${this.getBaseUrl()}/?_type=menuData&_tag=wan_internetstatus_lua.lua&TypeUplink=2&pageType=1&_=${timestamp}`;
+    const preflightUrl = `${this.getBaseUrl()}/?_type=menuView&_tag=ethWanStatus&Menu3Location=0&_=${timestamp}`;
+
+    const content = await this.makeAuthenticatedRequest(url, preflightUrl);
+    console.log('[ZteF6600pDriver] WAN Status XML Response:', content);
+
+    // Parse XML response
+    const wanConnections = this.parseWANStatusXML(content);
+
+    return wanConnections;
+  }
+
+  /**
+   * Get PON information using direct HTTP endpoint.
+   * Returns optical module data and PON registration status.
+   */
+  async getPONStatus(): Promise<PONStatus> {
+    const timestamp = Date.now();
+    const url = `${this.getBaseUrl()}/?_type=menuData&_tag=optical_info_lua.lua&_=${timestamp}`;
+    const preflightUrl = `${this.getBaseUrl()}/?_type=menuView&_tag=ponopticalinfo&Menu3Location=0&_=${timestamp}`;
+
+    const content = await this.makeAuthenticatedRequest(url, preflightUrl);
+    console.log('[ZteF6600pDriver] PON Status XML Response:', content);
+
+    // Parse XML response
+    const ponStatus = this.parsePONStatusXML(content);
+
+    return ponStatus;
+  }
+
+  /**
+   * Parse system status XML response.
+   */
+  private parseSystemStatusXML(xml: string): SystemStatus {
+    // Helper to extract value from XML tag
+    const extractValue = (tag: string, defaultValue: string = ""): string => {
+      const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`, "i");
+      const match = xml.match(regex);
+      return match ? match[1] : defaultValue;
+    };
+
+    // Helper to extract ParaValue by ParaName
+    const extractParaValue = (paraName: string, defaultValue: string = ""): string => {
+      const regex = new RegExp(`<ParaName>${paraName}</ParaName><ParaValue>([^<]*)</ParaValue>`, "i");
+      const match = xml.match(regex);
+      return match ? match[1] : defaultValue;
+    };
+
+    // Extract device info
+    const manufacturer = extractParaValue("ManuFacturer", "ZTE");
+    const model = extractParaValue("ModelName", "F6600P");
+    const hardwareVersion = extractParaValue("HardwareVer", "");
+    const softwareVersion = extractParaValue("SoftwareVer", "");
+    const softwareVersionExtent = extractParaValue("SoftwareVerExtent", "");
+    const bootVersion = extractParaValue("BootVer", "");
+    const serialNumber = extractParaValue("SerialNumber", "");
+    const onuAlias = extractParaValue("OnuAlias", "");
+    const verDate = extractParaValue("VerDate", "");
+
+    // Extract CPU/Memory usage
+    const cpuUsage1 = parseInt(extractParaValue("CpuUsage1", "0"), 10);
+    const cpuUsage2 = parseInt(extractParaValue("CpuUsage2", "0"), 10);
+    const cpuUsage = (cpuUsage1 + cpuUsage2) / 2;
+    const memoryUsage = parseInt(extractParaValue("MemUsage", "0"), 10);
+
+    // Extract power-on time
+    const powerOnTime = parseInt(extractParaValue("PowerOnTime", "0"), 10);
+
+    return {
+      manufacturer,
+      model,
+      hardwareVersion,
+      softwareVersion,
+      softwareVersionExtent,
+      bootVersion,
+      serialNumber,
+      onuAlias,
+      verDate,
+      cpuUsage,
+      memoryUsage,
+      powerOnTime,
+    };
+  }
+
+  /**
+   * Parse WAN status XML response.
+   */
+  private parseWANStatusXML(xml: string): WanConnection[] {
+    const connections: WanConnection[] = [];
+
+    // Helper to extract ParaValue by ParaName
+    const extractParaValue = (paraName: string, defaultValue: string = ""): string => {
+      const regex = new RegExp(`<ParaName>${paraName}</ParaName><ParaValue>([^<]*)</ParaValue>`, "i");
+      const match = xml.match(regex);
+      return match ? match[1] : defaultValue;
+    };
+
+    // Find all Instance blocks within ID_WAN_COMFIG
+    const instanceRegex = /<Instance>([\s\S]*?)<\/Instance>/gi;
+    const instances = xml.match(instanceRegex) || [];
+
+    // Helper to extract value from Instance XML
+    const extractFromInstance = (instanceXml: string, paraName: string, defaultValue: string = ""): string => {
+      const regex = new RegExp(`<ParaName>${paraName}</ParaName><ParaValue>([^<]*)</ParaValue>`, "i");
+      const match = instanceXml.match(regex);
+      return match ? match[1] : defaultValue;
+    };
+
+    // Helper function to check if an IP address is private
+    const isPrivateIp = (ipWithCidr: string): boolean => {
+      const ip = ipWithCidr.split("/")[0];
+      const parts = ip.split(".").map((p) => parseInt(p, 10));
+
+      if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
+        return false;
+      }
+
+      const [a, b, c, d] = parts;
+
+      // 10.0.0.0/8
+      if (a === 10) return true;
+
+      // 172.16.0.0/12
+      if (a === 172 && b >= 16 && b <= 31) return true;
+
+      // 192.168.0.0/16
+      if (a === 192 && b === 16) return true;
+
+      // 127.0.0.0/8 (loopback)
+      if (a === 127) return true;
+
+      // 100.64.0.0/10 (CGNAT)
+      if (a === 100 && b >= 64 && b <= 127) return true;
+
+      // 169.254.0.0/16 (link-local)
+      if (a === 169 && b === 254) return true;
+
+      return false;
+    };
+
+    // Parse uptime string (format: "72 h 55 min 38 s")
+    const parseUptimeSeconds = (uptimeText: string): number => {
+      const hoursMatch = uptimeText.match(/(\d+)\s*h/);
+      const minsMatch = uptimeText.match(/(\d+)\s*min/);
+      const secsMatch = uptimeText.match(/(\d+)\s*s/);
+
+      return (
+        (hoursMatch ? parseInt(hoursMatch[1]) * 3600 : 0) +
+        (minsMatch ? parseInt(minsMatch[1]) * 60 : 0) +
+        (secsMatch ? parseInt(secsMatch[1]) : 0)
+      );
+    };
+
+    for (const instanceXml of instances) {
+      // Check if this is a WAN connection instance (has _InstID with IGD.WD pattern)
+      const instId = extractFromInstance(instanceXml, "_InstID", "");
+      if (!instId.startsWith("IGD.WD")) continue;
+
+      const connStatus = extractFromInstance(instanceXml, "ConnStatus", "");
+      const upTimeText = extractFromInstance(instanceXml, "UpTime", "");
+      const ipAddress = extractFromInstance(instanceXml, "IPAddress", "");
+
+      const conn: WanConnection = {
+        name: extractFromInstance(instanceXml, "WANCName", ""),
+        type: extractFromInstance(instanceXml, "mode", ""),
+        ipVersion: extractFromInstance(instanceXml, "IpMode", ""),
+        nat: extractFromInstance(instanceXml, "IsNAT", ""),
+        ipAddress,
+        dns: extractFromInstance(instanceXml, "DNS1", ""),
+        gateway: extractFromInstance(instanceXml, "GateWay", ""),
+        connectionStatus: connStatus,
+        uptime: upTimeText,
+        uptimeSeconds: parseUptimeSeconds(upTimeText),
+        disconnectReason: extractFromInstance(instanceXml, "ConnError", ""),
+        macAddress: extractFromInstance(instanceXml, "WorkIFMac", ""),
+        vlanId: extractFromInstance(instanceXml, "VLANID", ""),
+        isPrivate: isPrivateIp(ipAddress),
+      };
+
+      // IPv6 fields (if available)
+      const lla = extractFromInstance(instanceXml, "LLA", "");
+      const gua = extractFromInstance(instanceXml, "Gua1", "");
+      const dnsV6 = extractFromInstance(instanceXml, "Dns1v6", "");
+      const connStatusV6 = extractFromInstance(instanceXml, "ConnStatus6", "");
+      const uptimeV6 = extractFromInstance(instanceXml, "UpTimeV6", "");
+      const gatewayV6 = extractFromInstance(instanceXml, "Gateway6", "");
+
+      if (lla) conn.lla = lla;
+      if (gua) conn.gua = gua;
+      if (dnsV6) conn.dnsV6 = dnsV6;
+      if (connStatusV6) conn.connectionStatusV6 = connStatusV6;
+      if (uptimeV6) {
+        conn.uptimeV6 = uptimeV6;
+        conn.uptimeV6Seconds = parseUptimeSeconds(uptimeV6);
+      }
+      if (gatewayV6 && gatewayV6 !== "NULL") conn.gatewayV6 = gatewayV6;
+
+      connections.push(conn);
+    }
+
+    return connections;
+  }
+
+  /**
+   * Parse PON status XML response.
+   */
+  private parsePONStatusXML(xml: string): PONStatus {
+    // Helper to extract ParaValue by ParaName
+    const extractParaValue = (paraName: string, defaultValue: string = ""): string => {
+      const regex = new RegExp(`<ParaName>${paraName}</ParaName><ParaValue>([^<]*)</ParaValue>`, "i");
+      const match = xml.match(regex);
+      return match ? match[1] : defaultValue;
+    };
+
+    const rxPower = parseFloat(extractParaValue("RxPower", "0"));
+    const txPower = parseFloat(extractParaValue("TxPower", "0"));
+    const voltage = parseInt(extractParaValue("Volt", "0"), 10);
+    const temperature = parseFloat(extractParaValue("Temp", "0"));
+    const current = parseFloat(extractParaValue("Current", "0"));
+    const rfTxPower = parseInt(extractParaValue("RFTxPower", "0"), 10);
+    const videoRxPower = parseInt(extractParaValue("VideoRxPower", "0"), 10);
+    const onuState = extractParaValue("RegStatus", "");
+    const onuId = parseInt(extractParaValue("OnuId", "0"), 10);
+    const losInfo = parseInt(extractParaValue("LosInfo", "0"), 10);
+    const catvEnable = parseInt(extractParaValue("CatvEnable", "0"), 10);
+    const ponOnTime = parseInt(extractParaValue("PONOnTime", "0"), 10);
+
+    return {
+      rxPower,
+      txPower,
+      voltage,
+      temperature,
+      current,
+      rfTxPower,
+      videoRxPower,
+      onuState,
+      onuId,
+      losInfo,
+      catvEnable,
+      ponOnTime,
     };
   }
 
@@ -411,7 +667,7 @@ export class ZteF6600pDriver implements RouterDriver {
   private async getPage(): Promise<Page> {
     if (!this.browser) {
       this.browser = await chromium.launch({
-        headless: this.config.headless ?? true,
+        headless: this.config.headless ?? false,
       });
     }
 
