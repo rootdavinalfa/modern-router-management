@@ -4,10 +4,10 @@ import {
   CardContent,
   CardHeader,
 } from '@modern-router-management/ui'
-import type { WanConnection } from '../../lib/api'
+import type { WanConnectionDTO } from '@modern-router-management/types/router'
 
 interface WANConnectionCardProps {
-  connection: WanConnection
+  connection: WanConnectionDTO
   index: number
 }
 
@@ -63,6 +63,14 @@ function WANDetailItemWithBadge({
   )
 }
 
+const formatUptime = (seconds: number): string => {
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+
+  return `${days}d ${hours}h ${minutes}m`
+}
+
 export function WANConnectionCard({
   connection,
   index,
@@ -85,6 +93,7 @@ export function WANConnectionCard({
     dnsV6,
     connectionStatusV6,
     uptimeV6,
+    uptimeV6Seconds,
     gatewayV6,
     isPrivate,
   } = connection
@@ -137,7 +146,7 @@ export function WANConnectionCard({
           <WANDetailItem label="DNS" value={dns} />
           <WANDetailItem label="MAC Address" value={macAddress} />
           <WANDetailItem label="NAT" value={nat} />
-          <WANDetailItem label="Uptime" value={uptime} />
+          <WANDetailItem label="Uptime" value={formatUptime(uptime)} />
           {disconnectReason && (
             <WANDetailItem label="Disconnect Reason" value={disconnectReason} />
           )}
@@ -158,8 +167,11 @@ export function WANConnectionCard({
                   value={connectionStatusV6}
                 />
               )}
-              {uptimeV6 && (
-                <WANDetailItem label="IPv6 Uptime" value={uptimeV6} />
+              {uptimeV6 && uptimeV6Seconds !== undefined && (
+                <WANDetailItem
+                  label="IPv6 Uptime"
+                  value={formatUptime(uptimeV6)}
+                />
               )}
               {gatewayV6 && <WANDetailItem label="Gateway" value={gatewayV6} />}
             </div>

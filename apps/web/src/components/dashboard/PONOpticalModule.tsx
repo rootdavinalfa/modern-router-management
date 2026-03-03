@@ -1,17 +1,9 @@
 import type { ReactNode } from 'react'
 import { Badge, Card, CardContent } from '@modern-router-management/ui'
-
-interface PONData {
-  rxPower: number
-  txPower: number
-  temperature: number
-  voltage: number
-  current: number
-  onuState: string
-}
+import type { PONStatusDTO } from '@modern-router-management/types/router'
 
 interface PONOpticalModuleProps {
-  ponData: PONData
+  ponData: PONStatusDTO
   signalStrength: number
 }
 

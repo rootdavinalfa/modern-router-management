@@ -5,6 +5,9 @@ import {
   type RouterStatusDTO,
   type RouterSummaryDTO,
   type WifiConfigDTO,
+  type SystemStatusDTO,
+  type PONStatusDTO,
+  type WanConnectionDTO,
 } from '@modern-router-management/types/router'
 
 // Use relative URL in production (nginx proxy), absolute in development
@@ -42,36 +45,19 @@ export const fetchRouters = () => request<RouterSummaryDTO[]>('/routers')
 export const fetchActiveRouter = () =>
   request<RouterSummaryDTO | null>('/routers/active')
 
-export type RouterStatusExtended = RouterStatusDTO & {
-  ponData?: Record<string, unknown>
-  wanConnections?: WanConnection[]
-}
-
-export type WanConnection = {
-  name: string
-  type: string
-  ipVersion: string
-  nat: string
-  ipAddress: string
-  dns: string
-  gateway: string
-  connectionStatus: string
-  uptime: string
-  uptimeSeconds: number
-  disconnectReason: string
-  macAddress: string
-  vlanId: string
-  isPrivate: boolean
-  lla?: string
-  gua?: string
-  dnsV6?: string
-  connectionStatusV6?: string
-  uptimeV6?: string
-  gatewayV6?: string
-}
+export type WanConnection = WanConnectionDTO
 
 export const fetchRouterStatus = (routerId: number) =>
-  request<RouterStatusExtended>(`/routers/${routerId}/status`)
+  request<RouterStatusDTO>(`/routers/${routerId}/status`)
+
+export const fetchSystemStatus = (routerId: number) =>
+  request<SystemStatusDTO>(`/routers/${routerId}/system-status`)
+
+export const fetchWANStatus = (routerId: number) =>
+  request<WanConnectionDTO[]>(`/routers/${routerId}/wan-status`)
+
+export const fetchPONStatus = (routerId: number) =>
+  request<PONStatusDTO>(`/routers/${routerId}/pon-status`)
 
 export const fetchRouterDevices = (routerId: number) =>
   request<DeviceDTO[]>(`/routers/${routerId}/devices`)
