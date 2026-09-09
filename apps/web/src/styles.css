@@ -1,2 +1,7 @@
 @import 'tailwindcss';
 @import '@modern-router-management/ui/globals.css';
+
+/* Scan the shared registry sources for utility classes (packages/ui lives
+   outside Tailwind v4's automatic source detection, which only covers the
+   app's own tree). */
+@source "../../../packages/ui/src";
