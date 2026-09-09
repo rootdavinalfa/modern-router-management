@@ -1,13 +1,13 @@
-import {
-  routerCreateSchema,
-  type DeviceDTO,
-  type RouterCreateDTO,
-  type RouterStatusDTO,
-  type RouterSummaryDTO,
-  type WifiConfigDTO,
-  type SystemStatusDTO,
-  type PONStatusDTO,
-  type WanConnectionDTO,
+import { routerCreateSchema } from '@modern-router-management/types/router'
+import type {
+  DeviceDTO,
+  PONStatusDTO,
+  RouterCreateDTO,
+  RouterStatusDTO,
+  RouterSummaryDTO,
+  SystemStatusDTO,
+  WanConnectionDTO,
+  WifiConfigDTO,
 } from '@modern-router-management/types/router'
 
 // Use relative URL in production (nginx proxy), absolute in development
@@ -40,7 +40,7 @@ export const createRouter = async (
   })
 }
 
-export const fetchRouters = () => request<RouterSummaryDTO[]>('/routers')
+export const fetchRouters = () => request<Array<RouterSummaryDTO>>('/routers')
 
 export const fetchActiveRouter = () =>
   request<RouterSummaryDTO | null>('/routers/active')
@@ -54,13 +54,13 @@ export const fetchSystemStatus = (routerId: number) =>
   request<SystemStatusDTO>(`/routers/${routerId}/system-status`)
 
 export const fetchWANStatus = (routerId: number) =>
-  request<WanConnectionDTO[]>(`/routers/${routerId}/wan-status`)
+  request<Array<WanConnectionDTO>>(`/routers/${routerId}/wan-status`)
 
 export const fetchPONStatus = (routerId: number) =>
   request<PONStatusDTO>(`/routers/${routerId}/pon-status`)
 
 export const fetchRouterDevices = (routerId: number) =>
-  request<DeviceDTO[]>(`/routers/${routerId}/devices`)
+  request<Array<DeviceDTO>>(`/routers/${routerId}/devices`)
 
 export const updateWifi = (routerId: number, config: WifiConfigDTO) =>
   request<{ ok: boolean }>(`/routers/${routerId}/wifi`, {

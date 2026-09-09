@@ -19,6 +19,22 @@ export interface ThemeState {
 const listeners = new Set<() => void>()
 let state: ThemeState = { mode: 'auto', resolved: 'light' }
 
+// First-paint guard: the store defaults to 'light' so the server render and
+// first client render agree, but the Toaster/ThemeToggle must show the REAL
+// resolved theme (stored preference + OS scheme) as early as possible. The
+// inline THEME_INIT_SCRIPT in __root.tsx already paints <html> correctly; this
+// reconciles the store on the first client subscription, before the toaster
+// draws its first toast, without touching window at module scope.
+let initialized = false
+
+function ensureResolved() {
+  if (initialized || typeof window === 'undefined') {
+    return
+  }
+  initialized = true
+  publish()
+}
+
 function readStoredMode(): ThemeMode {
   if (typeof window === 'undefined') {
     return 'auto'
@@ -50,6 +66,7 @@ function publish() {
 }
 
 export function subscribeTheme(listener: () => void): () => void {
+  ensureResolved()
   listeners.add(listener)
   return () => {
     listeners.delete(listener)
@@ -61,11 +78,10 @@ export function getThemeSnapshot(): ThemeState {
 }
 
 export function useThemeState(): ThemeState {
-  return useSyncExternalStore(
-    subscribeTheme,
-    getThemeSnapshot,
-    () => ({ mode: 'auto', resolved: 'light' })
-  )
+  return useSyncExternalStore(subscribeTheme, getThemeSnapshot, () => ({
+    mode: 'auto',
+    resolved: 'light',
+  }))
 }
 
 // --- DOM application ---------------------------------------------------
