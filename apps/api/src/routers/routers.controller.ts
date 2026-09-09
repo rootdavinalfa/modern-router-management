@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -81,6 +82,16 @@ export class RoutersController {
   @Get(':id/wan-status')
   async getWANStatus(@Param('id', ParseIntPipe) id: number) {
     return this.routersService.getWANStatus(id);
+  }
+
+  @Get(':id/wifi-status')
+  async getWifiStatus(@Param('id', ParseIntPipe) id: number) {
+    return this.routersService.getWifiStatus(id);
+  }
+
+  @Delete(':id')
+  async deleteRouter(@Param('id', ParseIntPipe) id: number) {
+    return this.routersService.deleteRouter(id);
   }
 
   @Get(':id/pon-status')

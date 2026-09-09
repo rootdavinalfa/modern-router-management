@@ -16,6 +16,7 @@ import {
   type SystemStatusDTO,
   type PONStatusDTO,
   type WanConnectionDTO,
+  type WifiStatusDTO,
 } from '@modern-router-management/types/router';
 import { ZteF6600pDriver } from '@modern-router-management/drivers';
 import { DATABASE_CONNECTION, type DatabaseProvider } from '../db/db.module';
@@ -262,6 +263,48 @@ export class RoutersService implements OnModuleInit, OnModuleDestroy {
 
   async getPONStatus(routerId: number): Promise<PONStatusDTO> {
     return this.withDriver(routerId, (driver) => driver.getPONStatus());
+  }
+
+  async getWifiStatus(routerId: number): Promise<WifiStatusDTO> {
+    return this.withDriver(routerId, (driver) => driver.getWifiStatus());
+  }
+
+  async deleteRouter(routerId: number): Promise<{ ok: boolean }> {
+    const [router] = await this.db
+      .select()
+      .from(this.schema.routers)
+      .where(eq(this.schema.routers.id, routerId))
+      .limit(1);
+
+    if (!router) {
+      throw new NotFoundException('Router not found');
+    }
+
+    // Delete credentials first (child rows referencing the router)
+    await this.db
+      .delete(this.schema.routerCredentials)
+      .where(eq(this.schema.routerCredentials.routerId, routerId));
+
+    // Close and drop any cached driver for this router
+    const cached = this.driverCache.get(routerId);
+    if (cached) {
+      try {
+        await cached.driver.close();
+        console.log(`[RoutersService] Closed driver for router ${routerId}`);
+      } catch (error) {
+        console.error(
+          `[RoutersService] Error closing driver for router ${routerId}:`,
+          error,
+        );
+      }
+      this.driverCache.delete(routerId);
+    }
+
+    await this.db
+      .delete(this.schema.routers)
+      .where(eq(this.schema.routers.id, routerId));
+
+    return { ok: true };
   }
 
   private async withDriver<T>(
