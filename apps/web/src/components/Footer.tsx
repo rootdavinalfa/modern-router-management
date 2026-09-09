@@ -2,12 +2,12 @@ export default function Footer() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="mt-20 border-t border-[var(--line)] px-4 pb-14 pt-10 text-[var(--sea-ink-soft)]">
-      <div className="page-wrap flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-        <p className="m-0 text-sm">
+    <footer className="border-t">
+      <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-2 px-4 py-6 text-center sm:flex-row sm:px-6 sm:text-left">
+        <p className="text-sm text-muted-foreground">
           &copy; {year} Modern Router Management. All rights reserved.
         </p>
-        <p className="island-kicker m-0">Router-Core control plane</p>
+        <p className="text-sm text-muted-foreground">Router-Core control plane</p>
       </div>
     </footer>
   )
