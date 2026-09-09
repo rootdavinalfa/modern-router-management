@@ -8,6 +8,7 @@ import type {
   SystemStatusDTO,
   WanConnectionDTO,
   WifiConfigDTO,
+  WifiStatusDTO,
 } from '@modern-router-management/types/router'
 
 // Use relative URL in production (nginx proxy), absolute in development
@@ -67,6 +68,9 @@ export const updateWifi = (routerId: number, config: WifiConfigDTO) =>
     method: 'POST',
     body: JSON.stringify(config),
   })
+
+export const fetchWifiStatus = (routerId: number) =>
+  request<WifiStatusDTO>(`/routers/${routerId}/wifi-status`)
 
 export const rebootRouter = (routerId: number) =>
   request<{ ok: boolean }>(`/routers/${routerId}/reboot`, {

@@ -6,6 +6,7 @@ import {
   fetchRouters,
   fetchSystemStatus,
   fetchWANStatus,
+  fetchWifiStatus,
 } from './api'
 
 export const routersOptions = queryOptions({
@@ -44,4 +45,12 @@ export const devicesOptions = (routerId: number) =>
     queryKey: ['router', routerId, 'devices'],
     queryFn: () => fetchRouterDevices(routerId),
     refetchInterval: 15_000,
+  })
+
+// Config page: no polling — the page reflects what the router reported and is
+// refreshed manually (header refresh button) or after each successful save.
+export const wifiStatusOptions = (routerId: number) =>
+  queryOptions({
+    queryKey: ['router', routerId, 'wifi-status'],
+    queryFn: () => fetchWifiStatus(routerId),
   })
