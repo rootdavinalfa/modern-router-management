@@ -4,7 +4,16 @@ import type {
   DeviceDTO,
   RouterStatusDTO,
   WifiConfigDTO,
+  WifiStatusDTO,
 } from "@modern-router-management/types/router";
+import { wifiConfigSchema } from "@modern-router-management/types/router";
+import {
+  buildWifiStatus,
+  executeWifiUpdatePlan,
+  parseWlanSsidInstances,
+  planWifiSettingsUpdate,
+  type WifiPageState,
+} from "./zte-wifi.js";
 
 export type ZteF6600pDriverConfig = {
   host: string;
@@ -640,8 +649,175 @@ export class ZteF6600pDriver implements RouterDriver {
     await page.waitForTimeout(2000);
   }
 
-  async updateWifiSettings(_config: WifiConfigDTO): Promise<void> {
+  async updateWifiSettings(config: WifiConfigDTO): Promise<void> {
+    // Validate before touching the router.
+    const parsed = wifiConfigSchema.parse(config);
     const page = await this.getPage();
+
+    // Navigate to Local Network → WLAN → WLAN Basic, wait for the SSID + radio
+    // forms to populate, and snapshot the live form state (radio on/off rows,
+    // SSID slots, channel rows). The plan is built from that snapshot and then
+    // executed against the real page — the router's own JS performs the
+    // submit-time passphrase encryption, so no hand-rolled crypto is needed.
+    await this.openWlanBasicPage();
+    const state = await this.collectWifiPageState(page);
+    const plan = planWifiSettingsUpdate(parsed, state);
+
+    if (plan.length === 0) {
+      return; // requested state already matches the router
+    }
+
+    await executeWifiUpdatePlan(page, plan);
+
+    // Re-fetch and compare the effective state so silent no-ops surface loudly.
+    const applied = await this.getWifiStatus();
+    const band = applied.bands.find((b) => b.band === parsed.band);
+    if (!band || band.ssid !== parsed.ssid || band.enabled !== parsed.enabled) {
+      throw new Error(
+        `updateWifiSettings: router did not confirm the new ${parsed.band} state (ssid=${band?.ssid ?? "(none)"})`,
+      );
+    }
+  }
+
+  /**
+   * Get the current WiFi status for both bands.
+   *
+   * Reads the WLAN Basic page data via the same authenticated XHR pattern as the
+   * other status endpoints:
+   *  - `wlan_wlansssidconf_lua.lua` (SSID/security per AP),
+   *  - `wlan_wlanbasicadconf_lua.lua` (radio channel/mode + on/off).
+   *
+   * The router only returns the WPA passphrase AES-encrypted, so `password` is
+   * never populated here (schema-optional).
+   */
+  async getWifiStatus(): Promise<WifiStatusDTO> {
+    const timestamp = Date.now();
+    const base = this.getBaseUrl();
+
+    const ssidUrl = `${base}/?_type=menuData&_tag=wlan_wlansssidconf_lua.lua&_=${timestamp}`;
+    const radioUrl = `${base}/?_type=menuData&_tag=wlan_wlanbasicadconf_lua.lua&_=${timestamp + 1}`;
+    const preflight = `${base}/?_type=menuView&_tag=wlanBasic&Menu3Location=0&_=${timestamp + 2}`;
+
+    // The page must be present for the router to serve menuData (preflight menuView).
+    const [ssidXml, radioXml] = await Promise.all([
+      this.makeAuthenticatedRequest(ssidUrl, preflight),
+      this.makeAuthenticatedRequest(radioUrl),
+    ]);
+
+    // Sanity: if both responses look like the on/off-only page, retry once via
+    // the live page's own dataTransfer targets after opening WLAN Basic.
+    if (!ssidXml.includes("OBJ_WLANAP_ID") || !radioXml.includes("Channel")) {
+      await this.openWlanBasicPage();
+      const page = await this.getPage();
+      const refreshed = await Promise.all([
+        this.makeAuthenticatedRequest(ssidUrl),
+        this.makeAuthenticatedRequest(radioUrl),
+      ]);
+      return buildWifiStatus(refreshed[0], refreshed[1]);
+    }
+
+    return buildWifiStatus(ssidXml, radioXml);
+  }
+
+  /**
+   * Navigate to Local Network → WLAN → WLAN Basic and wait for the SSID forms.
+   */
+  private async openWlanBasicPage(): Promise<void> {
+    const page = await this.getPage();
+    if (!this.authenticated) {
+      await this.authenticate();
+    }
+
+    // idempotent: already on the WLAN Basic view with forms populated?
+    const already = await page
+      .locator('[id^="template_WLANSSIDConf_"], #WlanBasicAdOnOff')
+      .first()
+      .count()
+      .catch(() => 0);
+    if (already > 0) {
+      return;
+    }
+
+    await page.locator('a#localnet').first().click();
+    await page.waitForTimeout(1200);
+    await page.locator('a#wlanConfig').first().click();
+    await page.waitForSelector('#WlanBasicAdOnOff', { timeout: 15000 });
+    // Let the three data sections (on/off, global, SSID) finish loading.
+    await page.waitForTimeout(2500);
+    // Expand the collapsible data sections so their instances render:
+    // 1) WLAN Global Configuration (holds per-radio channel/mode forms), then
+    // 2) WLAN SSID Configuration (holds the per-SSID forms).
+    const adconfBar = page.locator('#WlanBasicAdConfBar').first();
+    if ((await adconfBar.count()) > 0) {
+      await adconfBar.click();
+      await page.waitForTimeout(2500);
+    }
+    const ssidBar = page.locator('#WLANSSIDConfBar').first();
+    if ((await ssidBar.count()) > 0) {
+      await ssidBar.click();
+      await page.waitForTimeout(2500);
+    }
+  }
+
+  /**
+   * Snapshot the live WLAN Basic forms into the pure `WifiPageState` the plan
+   * builder consumes: radio on/off rows, per-SSID slots, and channel rows.
+   */
+  private async collectWifiPageState(page: Page): Promise<WifiPageState> {
+    const raw = await page.evaluate(() => {
+      const templateId = (el: Element | null | undefined): string => {
+        if (!el) return "";
+        const match = /template_[A-Za-z0-9_]+_(\d+)/.exec(el.closest('[id^="template_"]')?.id ?? "");
+        return match ? match[1] : "";
+      };
+      const val = (root: Document | Element, id: string): string => {
+        const e = root.querySelector(`[id="${id}"]`);
+        return e instanceof HTMLInputElement ? e.value : "";
+      };
+
+      const onoff = document.querySelector('[id^="template_WlanBasicAdOnOff"]');
+      const radios = Array.from(onoff?.querySelectorAll('[id^="div_WLANRadioStatus_"]') ?? []).map((row, idx) => {
+        const inst = val(row, `_InstID_${idx}`);
+        const bandRaw = val(row, `Band_${idx}`);
+        const onChecked = row.querySelector<HTMLInputElement>(`input[value="1"]:checked, [id^="RadioStatus0_"][checked]`) !== null;
+        return {
+          radioInstId: inst,
+          band: bandRaw === "5GHz" ? ("5GHz" as const) : ("2.4GHz" as const),
+          rowIndex: idx,
+          on: onChecked,
+        };
+      });
+
+      const ssidTemplates = Array.from(document.querySelectorAll('[id^="template_WLANSSIDConf_"]')).map((t) => {
+        const idx = templateId(t);
+        const radio = val(t, `WLANViewName:${idx}`);
+        const enableOn = t.querySelector<HTMLInputElement>(`input[name="Enable:${idx}"][value="1"]:checked`) !== null;
+        return {
+          index: Number(idx),
+          instId: val(t, `_InstID:${idx}`),
+          wlanView: radio,
+          alias: val(t, `Alias:${idx}`),
+          enabled: enableOn,
+          ssid: val(t, `ESSID:${idx}`),
+        };
+      });
+
+      const adconfTemplates = Array.from(document.querySelectorAll('[id^="template_WlanBasicAdConf_"]')).map((t) => {
+        const idx = templateId(t);
+        const chanRaw = val(t, `Channel:${idx}`);
+        const chanNum = chanRaw ? Number(chanRaw) : NaN;
+        return {
+          index: Number(idx),
+          instId: val(t, `_InstID:${idx}`),
+          band: val(t, `Band:${idx}`) === "5GHz" ? ("5GHz" as const) : ("2.4GHz" as const),
+          channel: Number.isInteger(chanNum) && chanNum > 0 ? chanNum : null,
+        };
+      });
+
+      return { radios, ssids: ssidTemplates, adconf: adconfTemplates };
+    });
+
+    return raw;
   }
 
   async reboot(): Promise<void> {

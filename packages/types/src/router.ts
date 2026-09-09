@@ -12,6 +12,24 @@ export const wifiConfigSchema = z.object({
 
 export type WifiConfigDTO = z.infer<typeof wifiConfigSchema>;
 
+export const wifiStatusBandSchema = z.object({
+  band: wifiBandSchema,
+  enabled: z.boolean(),
+  ssid: z.string().min(1),
+  password: z.string().min(1).optional(),
+  channel: z.number().int().min(1).max(165).optional(),
+  mode: z.string().min(1).optional(),
+  security: z.string().min(1).optional(),
+});
+
+export type WifiStatusBandDTO = z.infer<typeof wifiStatusBandSchema>;
+
+export const wifiStatusSchema = z.object({
+  bands: z.array(wifiStatusBandSchema).min(1),
+});
+
+export type WifiStatusDTO = z.infer<typeof wifiStatusSchema>;
+
 export const deviceSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),

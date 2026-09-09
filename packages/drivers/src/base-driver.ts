@@ -2,6 +2,7 @@ import type {
   DeviceDTO,
   RouterStatusDTO,
   WifiConfigDTO,
+  WifiStatusDTO,
   SystemStatusDTO,
   PONStatusDTO,
   WanConnectionDTO,
@@ -47,6 +48,11 @@ export interface RouterDriver {
    * Update WiFi settings.
    */
   updateWifiSettings(config: WifiConfigDTO): Promise<void>;
+
+  /**
+   * Get current WiFi status (per-band SSID, enable state, channel, security).
+   */
+  getWifiStatus(): Promise<WifiStatusDTO>;
 
   /**
    * Submit/Apply internet settings.
