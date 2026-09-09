@@ -37,7 +37,9 @@ RUN bun install
 # Build all packages in order
 RUN cd packages/types && bun run build
 RUN cd packages/drivers && bun run build
-RUN cd packages/drivers && bunx playwright install chromium --with-deps
+RUN cd packages/drivers && bun run playwright install chromium --with-deps
+# Guard: fail here if install produced a revision that the pinned playwright cannot use
+RUN ls /root/.cache/ms-playwright/ | grep -E "^(chromium|chromium_headless_shell)-1208$"
 RUN cd apps/api && bun run build
 RUN cd apps/web && bun run build
 
@@ -61,7 +63,7 @@ COPY --from=builder /build/apps/api/dist ./apps/api/dist
 COPY --from=builder /build/packages/types/dist ./packages/types/dist
 COPY --from=builder /build/packages/drivers/dist ./packages/drivers/dist
 COPY --from=builder /build/apps/web/dist ./apps/web/dist
-COPY --from=builder /root/.cache/ms-playwright ./ms-playwright
+COPY --from=builder /root/.cache/ms-playwright/ /ms-playwright/
 
 # Copy package manifests and install dependencies
 COPY package.json bun.lock* ./

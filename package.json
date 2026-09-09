@@ -19,7 +19,8 @@
     "build:drivers": "turbo run @modern-router-management/drivers#build",
     "build:ui": "turbo run @modern-router-management/ui#build",
     "build:api": "turbo run api#build",
-    "build:web": "turbo run web#build"
+    "build:web": "turbo run web#build",
+    "install:browsers": "bun run --cwd packages/drivers playwright install chromium"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
