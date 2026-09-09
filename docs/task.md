@@ -57,3 +57,10 @@ Primary goals for the next implementation phase:
 - Added a Playwright-backed ZTE driver scaffold in packages/drivers.
 - Implemented encrypted router credential storage and router endpoints.
 - Hooked dashboard to live router status/devices via TanStack Query.
+
+## Session: shadcn primitive install (handoff)
+
+- Installed stock shadcn `base-sera` registry primitives (button, card, badge, input, label, table) under `packages/ui/src/components/` via `npx shadcn add` run from `apps/web`.
+- Added wildcard subpath exports to `packages/ui/package.json` (`./components/*`, `./lib/*`, `./hooks/*`, `./globals.css`) — required for cross-workspace alias resolution.
+- The `base-sera` style imports `{ cn } from "cn"` (npm package, already a dependency); it does not use `@modern-router-management/ui/lib/utils`.
+- Left for the next session: migrate dashboard consumers off the bespoke primitives (currently still in `packages/ui/src/*.tsx` + `src/index.ts` barrel) to subpath imports from `packages/ui/src/components/*`; drop the bespoke files; consolidate the duplicated shadcn token blocks between `apps/web/src/styles.css` and `packages/ui/src/styles/globals.css`.
