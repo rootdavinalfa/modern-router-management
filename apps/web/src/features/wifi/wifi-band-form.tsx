@@ -42,6 +42,8 @@ export interface WifiBandFormProps {
   } | null
   /** True while a save for this band is in flight. */
   isSaving: boolean
+  /** True while any band's save is in flight (disables this form's submit). */
+  isAnySaving: boolean
   /** Error from the last save attempt, if any. */
   errorMessage: string | null
   onSubmit: (values: WifiFormValues) => void
@@ -51,6 +53,7 @@ export function WifiBandForm({
   band,
   current,
   isSaving,
+  isAnySaving,
   errorMessage,
   onSubmit,
 }: WifiBandFormProps) {
@@ -60,21 +63,28 @@ export function WifiBandForm({
       band,
       enabled: current?.enabled ?? false,
       ssid: current?.ssid ?? '',
-      channel: current?.channel ?? 1,
+      channel: current?.channel ?? CHANNELS_BY_BAND[band][0],
       password: '',
     },
   })
 
+  // Reset only when the router-reported values actually change. `current` is a
+  // fresh object every parent render (background refetches included), so
+  // primitive deps prevent refetches from wiping the user's in-progress edits
+  // (the password especially — it is never re-seeded from the router).
   const { reset } = form
+  const reportedEnabled = current?.enabled ?? false
+  const reportedSsid = current?.ssid ?? ''
+  const reportedChannel = current?.channel ?? CHANNELS_BY_BAND[band][0]
   useEffect(() => {
     reset({
       band,
-      enabled: current?.enabled ?? false,
-      ssid: current?.ssid ?? '',
-      channel: current?.channel ?? 1,
+      enabled: reportedEnabled,
+      ssid: reportedSsid,
+      channel: reportedChannel,
       password: '',
     })
-  }, [band, current, reset])
+  }, [band, reportedEnabled, reportedSsid, reportedChannel, reset])
 
   const errors = form.formState.errors
   const security = current?.security ?? 'WPA2-PSK'
@@ -189,7 +199,10 @@ export function WifiBandForm({
               ) : null}
             </div>
           ) : (
-            <input type="hidden" {...form.register('password')} value="" />
+            <p className="text-sm text-muted-foreground">
+              This network has no password — SSID and channel changes cannot be
+              applied until the security mode supports one.
+            </p>
           )}
 
           <div className="space-y-2">
@@ -225,7 +238,11 @@ export function WifiBandForm({
                 wireless clients.
               </p>
             )}
-            <Button type="submit" disabled={isSaving} className="shrink-0">
+            <Button
+              type="submit"
+              disabled={!passwordRelevant || isAnySaving}
+              className="shrink-0"
+            >
               {isSaving ? 'Applying…' : 'Apply settings'}
             </Button>
           </div>
@@ -234,5 +251,3 @@ export function WifiBandForm({
     </Card>
   )
 }
-
-export type WifiConfigDTO = z.output<typeof wifiConfigSchema>

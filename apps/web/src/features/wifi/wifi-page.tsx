@@ -182,6 +182,10 @@ function WifiPage() {
                 updateMutation.isPending &&
                 updateMutation.variables.band === band
               }
+              // A save for either band must finish before another starts: the
+              // shared mutation is keyed by variables.band, so a second submit
+              // would supersede the in-flight one.
+              isAnySaving={updateMutation.isPending}
               errorMessage={
                 updateMutation.isError && updateMutation.variables.band === band
                   ? updateMutation.error.message
