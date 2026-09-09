@@ -1,26 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
+import { Button } from '@modern-router-management/ui/components/button'
 import { createFileRoute } from '@tanstack/react-router'
+import { PlusIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { RouterCreateDTO } from '@modern-router-management/types/router'
-import {
-  createRouter,
-  fetchActiveRouter,
-  fetchRouterStatus,
-  fetchRouters,
-  fetchSystemStatus,
-  fetchWANStatus,
-  fetchPONStatus,
-  type WanConnection,
-} from '../lib/api'
 import {
   DashboardHeader,
-  StatusCard,
   PONOpticalModule,
-  WANConnections,
-  RouterSetupForm,
-  RouterSelector,
+  StatusCard,
   SubmitInternetButton,
+  WANConnections,
 } from '../components/dashboard'
+import { SetupRouterDialog, useActiveRouter } from '../features/routers'
+import {
+  ponStatusOptions,
+  systemStatusOptions,
+  wanStatusOptions,
+} from '../lib/query-options'
+import type { WanConnection } from '../lib/api'
 
 export const Route = createFileRoute('/')({ component: App })
 
@@ -37,7 +33,7 @@ interface StatusSnapshot {
   voltage: number
   current: number
   onuState: string
-  wanConnections: WanConnection[]
+  wanConnections: Array<WanConnection>
   cpuUsage: number
   memoryUsage: number
   powerOnTime: number
@@ -52,64 +48,35 @@ const formatUptime = (seconds: number): string => {
 }
 
 function App() {
-  const queryClient = useQueryClient()
-  const [setupStatus, setSetupStatus] = useState<string | null>(null)
-  const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null)
-
-  const routersQuery = useQuery({
-    queryKey: ['routers'],
-    queryFn: fetchRouters,
-  })
-
-  const activeRouterQuery = useQuery({
-    queryKey: ['router', 'active'],
-    queryFn: fetchActiveRouter,
-  })
-
-  const routerId = selectedRouterId ?? activeRouterQuery.data?.id ?? null
+  const [setupDialogOpen, setSetupDialogOpen] = useState(false)
+  const { routerId } = useActiveRouter()
 
   // Sequential queries: system -> WAN -> PON
   // Each query depends on the previous one completing first
   const systemStatusQuery = useQuery({
-    queryKey: ['router', routerId, 'system-status'],
-    queryFn: () => fetchSystemStatus(routerId as number),
+    ...systemStatusOptions(routerId ?? 0),
     enabled: routerId !== null,
-    refetchInterval: 10000,
   })
 
   const wanStatusQuery = useQuery({
-    queryKey: ['router', routerId, 'wan-status'],
-    queryFn: () => fetchWANStatus(routerId as number),
+    ...wanStatusOptions(routerId ?? 0),
     enabled: routerId !== null && systemStatusQuery.isSuccess,
-    refetchInterval: 10000,
   })
 
   const ponStatusQuery = useQuery({
-    queryKey: ['router', routerId, 'pon-status'],
-    queryFn: () => fetchPONStatus(routerId as number),
-    enabled: routerId !== null && systemStatusQuery.isSuccess && wanStatusQuery.isSuccess,
-    refetchInterval: 10000,
+    ...ponStatusOptions(routerId ?? 0),
+    enabled:
+      routerId !== null &&
+      systemStatusQuery.isSuccess &&
+      wanStatusQuery.isSuccess,
   })
-
-  const setupMutation = useMutation({
-    mutationFn: createRouter,
-    onSuccess: () => {
-      setSetupStatus('Router saved securely.')
-      queryClient.invalidateQueries({ queryKey: ['router'] })
-    },
-    onError: (error: Error) => {
-      setSetupStatus(
-        error instanceof Error ? error.message : 'Unable to save router.',
-      )
-    },
-  })
-
-  const handleSelectRouter = (routerId: number) => {
-    setSelectedRouterId(routerId)
-  }
 
   const statusSnapshot = useMemo((): StatusSnapshot => {
-    if (!systemStatusQuery.data || !ponStatusQuery.data || !wanStatusQuery.data) {
+    if (
+      !systemStatusQuery.data ||
+      !ponStatusQuery.data ||
+      !wanStatusQuery.data
+    ) {
       return {
         model: 'ZTE F6600P',
         firmware: 'unknown',
@@ -131,9 +98,10 @@ function App() {
     }
 
     // Find INTERNET connection for primary status
-    const internetConnection = wanStatusQuery.data.find((w) => w.name === 'INTERNET')
+    const internetConnection = wanStatusQuery.data.find(
+      (w) => w.name === 'INTERNET',
+    )
     const wanIp = internetConnection?.ipAddress.split('/')[0] || '0.0.0.0'
-    const uptimeSeconds = internetConnection?.uptimeSeconds || 0
     const online = !!internetConnection
 
     // Calculate signal strength from optical RX power (typical range: -8 to -28 dBm)
@@ -141,7 +109,10 @@ function App() {
     const signalStrength = ponStatusQuery.data.rxPower
       ? Math.max(
           0,
-          Math.min(100, Math.round(((ponStatusQuery.data.rxPower + 28) / 20) * 100)),
+          Math.min(
+            100,
+            Math.round(((ponStatusQuery.data.rxPower + 28) / 20) * 100),
+          ),
         )
       : 0
 
@@ -165,22 +136,18 @@ function App() {
     }
   }, [systemStatusQuery.data, ponStatusQuery.data, wanStatusQuery.data])
 
-  const handleSetup = (values: RouterCreateDTO) => {
-    setSetupStatus(null)
-    setupMutation.mutate(values)
-  }
-
   return (
     <main className="page-wrap space-y-8 px-4 pb-10 pt-14">
       <section className="island-shell rise-in relative overflow-hidden rounded-4-xl px-6 py-10 sm:px-10 sm:py-12">
         <div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.28),transparent_66%)]" />
         <div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
 
-        <RouterSelector
-          routers={routersQuery.data ?? []}
-          selectedRouterId={routerId}
-          onSelectRouter={handleSelectRouter}
-        />
+        <div className="mb-6 flex items-center justify-end">
+          <Button variant="outline" onClick={() => setSetupDialogOpen(true)}>
+            <PlusIcon className="size-4" aria-hidden="true" />
+            Add router
+          </Button>
+        </div>
 
         <DashboardHeader
           model={statusSnapshot.model}
@@ -228,13 +195,10 @@ function App() {
         )}
       </section>
 
-      <section>
-        <RouterSetupForm
-          onSubmit={handleSetup}
-          isPending={setupMutation.isPending}
-          status={setupStatus}
-        />
-      </section>
+      <SetupRouterDialog
+        open={setupDialogOpen}
+        onOpenChange={setSetupDialogOpen}
+      />
     </main>
   )
 }

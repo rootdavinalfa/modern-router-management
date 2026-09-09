@@ -9,6 +9,8 @@ import { AppShell } from '../components/shell/AppShell'
 
 import TanStackQueryProvider from '../integrations/tanstack-query/root-provider'
 
+import { RouterProvider } from '../features/routers/router-store'
+
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 
 import appCss from '../styles.css?url'
@@ -57,19 +59,21 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="font-sans antialiased [overflow-wrap:anywhere]">
         <TanStackQueryProvider>
-          <AppShell>{children}</AppShell>
-          <TanStackDevtools
-            config={{
-              position: 'bottom-right',
-            }}
-            plugins={[
-              {
-                name: 'Tanstack Router',
-                render: <TanStackRouterDevtoolsPanel />,
-              },
-              TanStackQueryDevtools,
-            ]}
-          />
+          <RouterProvider>
+            <AppShell>{children}</AppShell>
+            <TanStackDevtools
+              config={{
+                position: 'bottom-right',
+              }}
+              plugins={[
+                {
+                  name: 'Tanstack Router',
+                  render: <TanStackRouterDevtoolsPanel />,
+                },
+                TanStackQueryDevtools,
+              ]}
+            />
+          </RouterProvider>
         </TanStackQueryProvider>
         <Scripts />
       </body>
