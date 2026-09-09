@@ -1,9 +1,11 @@
 import { tanstackConfig } from '@tanstack/eslint-config';
 
-/** @type {import("eslint").Linter.Config} */
-export default {
+/** @type {import("eslint").Linter.Config[]} */
+export default [
   ...tanstackConfig,
-  rules: {
-    // Add custom rules here
+  {
+    rules: {
+      // Add custom rules here
+    },
   },
-};
+];
