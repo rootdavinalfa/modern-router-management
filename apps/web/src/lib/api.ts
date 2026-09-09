@@ -43,6 +43,11 @@ export const createRouter = async (
 
 export const fetchRouters = () => request<Array<RouterSummaryDTO>>('/routers')
 
+export const fetchDeleteRouter = (routerId: number) =>
+  request<{ ok: boolean }>(`/routers/${routerId}`, {
+    method: 'DELETE',
+  })
+
 export const fetchActiveRouter = () =>
   request<RouterSummaryDTO | null>('/routers/active')
 

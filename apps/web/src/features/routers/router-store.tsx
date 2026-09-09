@@ -22,6 +22,8 @@ export function RouterProvider({ children }: { children: ReactNode }) {
 
   // Read the persisted selection only after mount so the server render and
   // first client render agree (SSR-safe); selection applies on the next paint.
+  // It stays null on the server and until the effect runs, so the first
+  // client paint falls back to the active router like the server render.
   useEffect(() => {
     const stored = window.localStorage.getItem(ACTIVE_ROUTER_STORAGE_KEY)
     const parsed = stored === null ? null : Number(stored)
@@ -34,7 +36,27 @@ export function RouterProvider({ children }: { children: ReactNode }) {
   const routers = routersQuery.data ?? []
   const activeRouter = activeRouterQuery.data ?? null
 
-  const routerId = storedRouterId ?? activeRouter?.id ?? null
+  // T5 carry-over fix: the persisted selection can dangle once a router is
+  // deleted server-side. While the routers list is unknown (first fetch
+  // pending) trust the stored id; once the list resolves, the effective id
+  // derives ONLY from ids that still exist (falling back to the active
+  // router), and stale storage is cleared so a reload does not reapply it.
+  const storedExists =
+    storedRouterId !== null &&
+    routers.some((router) => router.id === storedRouterId)
+
+  const routerId =
+    storedRouterId !== null && storedExists
+      ? storedRouterId
+      : (activeRouter?.id ?? null)
+
+  // Drop a dangling persisted selection once the routers list has resolved.
+  useEffect(() => {
+    if (storedRouterId !== null && !storedExists && routersQuery.isSuccess) {
+      window.localStorage.removeItem(ACTIVE_ROUTER_STORAGE_KEY)
+      setStoredRouterId(null)
+    }
+  }, [storedRouterId, storedExists, routersQuery.isSuccess])
 
   const setRouterId = (id: number) => {
     window.localStorage.setItem(ACTIVE_ROUTER_STORAGE_KEY, String(id))
@@ -51,6 +73,7 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     }),
     [
       routerId,
+      setRouterId,
       routers,
       activeRouter,
       routersQuery.isLoading,

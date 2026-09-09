@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WifiRouteImport } from './routes/wifi'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as DevicesRouteImport } from './routes/devices'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -17,6 +18,11 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 const WifiRoute = WifiRouteImport.update({
   id: '/wifi',
   path: '/wifi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevicesRoute = DevicesRouteImport.update({
@@ -38,12 +44,14 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/devices': typeof DevicesRoute
+  '/settings': typeof SettingsRoute
   '/wifi': typeof WifiRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/devices': typeof DevicesRoute
+  '/settings': typeof SettingsRoute
   '/wifi': typeof WifiRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/devices': typeof DevicesRoute
+  '/settings': typeof SettingsRoute
   '/wifi': typeof WifiRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/devices' | '/wifi' | '/api/auth/$'
+  fullPaths: '/' | '/devices' | '/settings' | '/wifi' | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/devices' | '/wifi' | '/api/auth/$'
-  id: '__root__' | '/' | '/devices' | '/wifi' | '/api/auth/$'
+  to: '/' | '/devices' | '/settings' | '/wifi' | '/api/auth/$'
+  id: '__root__' | '/' | '/devices' | '/settings' | '/wifi' | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DevicesRoute: typeof DevicesRoute
+  SettingsRoute: typeof SettingsRoute
   WifiRoute: typeof WifiRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/wifi'
       fullPath: '/wifi'
       preLoaderRoute: typeof WifiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/devices': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DevicesRoute: DevicesRoute,
+  SettingsRoute: SettingsRoute,
   WifiRoute: WifiRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
