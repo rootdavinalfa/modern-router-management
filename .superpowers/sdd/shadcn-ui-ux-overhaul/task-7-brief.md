@@ -1,0 +1,20 @@
+# Task 7 brief — driver: WiFi status read + real update (TDD, bun test)
+
+## Context
+ZTE F6600P driver: `packages/drivers/src/zte-f6600p.ts` implements RouterDriver (packages/drivers/src/base-driver.ts). It authenticates via Playwright, then uses `makeAuthenticatedRequest(url, preflightUrl)` (page.evaluate fetch with cookies) + XML parsing helpers for system/WAN/PON. `getConnectedDevices()` uses `page.evaluate` over window globals. `updateWifiSettings(_config)` is an EMPTY STUB (line ~643); `reboot()` is also a stub (T11's Settings page uses reboot — do NOT implement reboot here; scope is WiFi only).
+
+RouterDriver interface (base-driver.ts) currently: authenticate, getSystemStatus, getConnectedDevices, updateWifiSettings, reboot (+ close etc. — read it). WifiConfigDTO/wifiConfigSchema/wifiBandSchema already exist in packages/types (ssid, password min 8, band '2.4ghz'|'5ghz', enabled, channel 1-165).
+
+NO test infra exists in packages/drivers (preflight ruling): add `"test": "bun test"` script to packages/drivers/package.json; write tests as `packages/drivers/test/*.test.ts` executed by `bun test` from the package dir. Playwright browser NOT needed for unit tests — structure code so parsing/navigation-command-building is testable WITHOUT a live router (pure functions over HTML/XML fixtures or minimal page-object doubles). Do NOT launch chromium in tests.
+
+Real ZTE page structure/fixtures are NOT available in-repo (no captured HTML). The existing driver's HTTP endpoints use `_type=menuData&_tag=<lua>` + `_type=menuView&_tag=<view>` XHRs returning XML-ish content parsed by regex/helpers — READ the existing parse helpers (parseSystemStatusXML etc.) and follow the same shape: implement getWifiStatus via the same makeAuthenticatedRequest pattern against the ZTE WiFi pages, tolerant parsing (the router's actual tag names are uncertain: common ZTE F6600P WiFi endpoints are wlBasic/wlanBasic/`wifi` menus; parse BOTH plausible 2.4G and 5G sections defensively; fall back to connected-device/globals if page returns nothing). Where the real markup is unknowable, parse defensively from ANY of: XML attributes, <td> pairs, name/value inputs (id like ssid_2.4G / ssid_5G, channel fields), window globals. Tests assert the PARSER behavior on representative synthetic fixtures matching those shapes (documented as synthetic in the test file).
+
+## Deliverables
+1. `packages/types/src/router.ts`: ADD `wifiStatusSchema` + `WifiStatusDTO` (zod): `{ bands: Array<{ band: '2.4ghz'|'5ghz', enabled: boolean, ssid: string, password?: string, channel?: number, mode?: string, security?: string }> }` — export from index (check current export pattern: types barrel re-exports router).
+2. `base-driver.ts`: add `getWifiStatus(): Promise<WifiStatusDTO>` to RouterDriver.
+3. `zte-f6600p.ts`: implement `getWifiStatus()` (real navigation/HTTP per above) + REAL `updateWifiSettings(config)`: validate via wifiConfigSchema.parse, navigate to the band's WiFi page, fill ssid/password/channel/enable per band, Apply, wait (mirror submitInternet's wait pattern). Structure parsing + field-mapping as exported pure helpers so unit tests cover them without a router. If a genuine ZTE flow cannot be determined, implement the best-effort documented flow and mark clearly what depends on live-route validation (concern, not blocker — must not be a silent no-op).
+4. Tests `packages/drivers/test/zte-wifi.test.ts`: cover schema parse; parser maps synthetic 2.4G/5G fixture -> WifiStatusDTO bands correctly; updateWifiSettings field-mapping builds expected page actions (double with recorded actions) incl. band selection, validation error on bad config. Run `bun test` — ALL PASS. Also `bun run build` in drivers + types (both compile).
+5. Commit explicit paths (types src, drivers src + test + package.json). Message: `feat(drivers): read and apply ZTE wifi settings`
+
+## Acceptance
+- getWifiStatus + real updateWifiSettings implemented (no stubs); RouterDriver updated; WifiStatusDTO in types; bun test green; builds pass.

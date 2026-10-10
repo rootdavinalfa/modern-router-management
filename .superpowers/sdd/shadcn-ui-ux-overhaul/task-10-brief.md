@@ -1,0 +1,24 @@
+# Task 10 brief — WiFi settings page (/wifi)
+
+## Context
+Through T9: shadcn registry; shell; router context (useActiveRouter); query options (wifiStatusOptions does NOT exist yet — T5 deferred it; wifi-status endpoint + WifiStatusDTO now EXIST (T7 driver, T8 API) so ADD fetchWifiStatus to lib/api.ts + wifiStatusOptions to lib/query-options.ts in this task, key ['router',id,'wifi-status']). Dashboard/devices feature patterns + route-file pattern established.
+
+DTOs: WifiStatusDTO { bands: Array<{ band:'2.4ghz'|'5ghz', enabled, ssid, password?, channel?, mode?, security? }> }; WifiConfigDTO + wifiConfigSchema (ssid min1, password min8, band enum, enabled bool, channel 1-165) from @modern-router-management/types/router. API: GET /routers/:id/wifi-status (T8), POST /routers/:id/wifi (pre-existing, updateWifi(routerId, config) already in lib/api.ts).
+
+Registry components available: card, tabs, switch, select, input, button, skeleton, badge, alert? (check — if no alert component, use the dashboard's error-card pattern), separator, label (registry label exists? base-sera list: label was in the FIRST setup commit components — yes badge button card input label table were the initial 6; verify import path works). NO form registry component (base-sera stub) → use raw react-hook-form + zodResolver (pattern from setup-router-dialog.tsx in features/routers/ — MIRROR it).
+
+## Requirements
+1. api.ts: add `fetchWifiStatus(routerId): Promise<WifiStatusDTO>` (GET wifi-status). query-options.ts: add `wifiStatusOptions(id)` (['router',id,'wifi-status'], enabled id!==null). No refetch polling needed (config page — manual refresh ok) OR 30s; choose + document.
+2. `apps/web/src/features/wifi/wifi-page.tsx` (+ wifi-band-form.tsx + index.ts):
+   - No active router → empty state (mirror devices).
+   - Loading → skeleton cards. Error → error card + retry.
+   - Data → header 'WiFi Settings' + refresh; Tabs per band (value from status.bands; if a band missing from status, still render its tab with defaults + note 'router did not report this band — settings may not apply'; both 2.4ghz + 5ghz tabs ALWAYS present).
+   - Band form (react-hook-form + zodResolver): fields enabled (Switch), ssid (Input), security (Select: options depend on driver — generic: WPA2-PSK/WPA3/WPA2/WPA/WEP/None? base on what getWifiStatus returns in security; keep free-form Select with common options + current value), channel (Select of legal 1-13 for 2.4G? F6600P supports 1-165 per schema — use Select with 1..11 for 2.4G and 36/40/44/48/149/153/157/161/165 for 5G? ZTE-specific; simpler: numeric Input bounded 1-165 per schema w/ helper text, prefilled from status), password (Input type password w/ show toggle — ONLY shown when security != 'None'; leave blank = keep current (driver re-reads; sending blank fails schema min8 — use the status-provided write-only convention: on submit, if password field empty, omit? WifiConfigDTO requires password min8 — check how updateWifi validates; the driver validates wifiConfigSchema.parse → password REQUIRED. So band form password: prefill NOT possible (write-only); require user to enter a password to save, OR reuse... read the driver's updateWifiSettings (T7) to see if blank-password = keep-current is supported; if NOT, require password min 8 with helper 'required to apply changes' + document. Match reality — do not fake).
+   - Submit per-band (or single save for active tab): mutation updateWifi(routerId, config) → toast success ('WiFi settings applied') / error; invalidate ['router',id,'wifi-status'] + devices? wifi change affects devices signals — invalidate wifi-status only (keep scope); disable submit while pending.
+   - Show what the router reported: ssid/enabled/channel/security prefilled from status; a muted note 'current values from router'.
+3. Route file apps/web/src/routes/wifi.tsx → createFileRoute('/wifi') delegating to feature.
+4. Verification: tsc 0, eslint 0, prettier touched. Browser: tabs switch, form prefills from live/mock wifi-status, validation (short password error), save → mutation + toast + refetch, no-router empty, dark mode. Live router available in this env (T7 implementer used 192.168.1.1) — prefer live verification; NEVER apply destructive changes (no channel change/band toggle live; only same-value SSID/password apply is safe — mirror T7's caution). If only safe same-value apply is possible, verify error path + validation + read path live, and confirm mutation wiring via a deliberate invalid config (expect server/driver error toast).
+5. Commit explicit paths. Message: `feat(web): wifi settings page`
+
+## Acceptance
+- /wifi route live: per-band tabs + RHF forms prefilled from wifi-status, save via updateWifi with toasts + invalidation; wifiStatusOptions/fetchWifiStatus added; states handled; tsc/eslint/prettier clean; browser-verified (live-safe paths).
