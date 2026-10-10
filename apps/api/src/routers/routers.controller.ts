@@ -7,14 +7,22 @@ import {
   ParseIntPipe,
   Post,
 } from '@nestjs/common';
+import { ApiBody, ApiTags } from '@nestjs/swagger';
+import type { SchemaObject } from '@nestjs/swagger';
 import {
   routerCreateSchema,
   type RouterCreateDTO,
   type WifiConfigDTO,
   wifiConfigSchema,
 } from '@modern-router-management/types/router';
+import { z } from 'zod';
 import { RoutersService } from './routers.service';
 
+// zod's JSON Schema is structurally compatible here but not type-identical to OpenAPI's SchemaObject
+const openApiSchema = (schema: z.ZodType): SchemaObject =>
+  z.toJSONSchema(schema, { target: 'openapi-3.0' }) as SchemaObject;
+
+@ApiTags('routers')
 @Controller('routers')
 export class RoutersController {
   constructor(private readonly routersService: RoutersService) {}
@@ -30,6 +38,7 @@ export class RoutersController {
   }
 
   @Post()
+  @ApiBody({ schema: openApiSchema(routerCreateSchema) })
   async createRouter(@Body() body: RouterCreateDTO) {
     const parsed = routerCreateSchema.safeParse(body);
     if (!parsed.success) {
@@ -49,6 +58,7 @@ export class RoutersController {
   }
 
   @Post(':id/wifi')
+  @ApiBody({ schema: openApiSchema(wifiConfigSchema) })
   async updateWifi(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: WifiConfigDTO,

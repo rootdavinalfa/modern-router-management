@@ -72,12 +72,14 @@
     "api#dev": {
       "dependsOn": ["@modern-router-management/types#build", "@modern-router-management/drivers#build"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["PORT", "CORS_ORIGIN"]
     },
     "web#dev": {
       "dependsOn": ["@modern-router-management/types#build", "@modern-router-management/ui#build"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["PORT"]
     }
   }
 }

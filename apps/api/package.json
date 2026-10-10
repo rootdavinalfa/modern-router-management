@@ -23,11 +23,12 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@modern-router-management/drivers": "0.0.1",
+    "@modern-router-management/types": "0.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
-    "@modern-router-management/types": "0.0.1",
-    "@modern-router-management/drivers": "0.0.1",
+    "@nestjs/swagger": "^11",
     "better-sqlite3": "^11.10.0",
     "dotenv": "^16.6.1",
     "drizzle-orm": "^0.44.5",
