@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
@@ -9,14 +9,21 @@ import tailwindcss from '@tailwindcss/vite'
 
 const enableTanStackDevtools = process.env.TANSTACK_VITE_DEVTOOLS === 'true'
 
-const config = defineConfig({
-  plugins: [
-    ...(enableTanStackDevtools ? [devtools()] : []),
-    tsconfigPaths({ projects: ['./tsconfig.json'] }),
-    tailwindcss(),
-    tanstackStart(),
-    viteReact(),
-  ],
+const config = defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  return {
+    server: {
+      port: Number(env.PORT) || 3000,
+    },
+    plugins: [
+      ...(enableTanStackDevtools ? [devtools()] : []),
+      tsconfigPaths({ projects: ['./tsconfig.json'] }),
+      tailwindcss(),
+      tanstackStart(),
+      viteReact(),
+    ],
+  }
 })
 
 export default config

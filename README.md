@@ -83,6 +83,8 @@ cd apps/web
 cp .env.example .env.local
 ```
 
+Each app reads its port from `PORT` in its own `.env` (API defaults to 3001, web to 3000). In the combined Docker/k8s container both processes share one environment, so `PORT` there is the web port and `API_PORT` is the API port.
+
 ### 3. Run the Application
 
 **Option A: Run everything together (from root)**
@@ -287,14 +289,21 @@ docker run -d --name modern-router-db \
 openssl rand -base64 32
 ```
 
+Generate the Better Auth secret for the web server:
+```bash
+bunx --bun @better-auth/cli secret
+```
+
 **3. Create Environment File:**
 ```bash
 cat > .env.docker << EOF
 NODE_ENV=production
-PORT=3001
+PORT=3000
+API_PORT=3001
 DB_ENGINE=postgres
 DATABASE_URL=postgresql://postgres:12345678@localhost:5432/modern_router_mgmt
 ROUTER_CREDENTIALS_KEY=<your-generated-key>
+BETTER_AUTH_SECRET=<your-better-auth-secret>
 EOF
 ```
 
@@ -326,8 +335,8 @@ docker logs modern-router-app
 ### Container Architecture
 
 The single container includes:
-- **TanStack Start Server** (port 3000): SSR frontend with React Router
-- **NestJS API** (port 3001): Backend API server
+- **NestJS API** (port 3001): Backend API server — Swagger UI at `/docs` (non-production only), health at `/health`
+- **TanStack Start Server** (port 3000): SSR frontend — health at `/health`
 - **Playwright Chromium**: Browser automation for router scraping
 
 **Image Size:**
@@ -340,7 +349,9 @@ The single container includes:
 | `DB_ENGINE` | Yes | `sqlite` or `postgres` |
 | `DATABASE_URL` | If postgres | PostgreSQL connection string |
 | `ROUTER_CREDENTIALS_KEY` | Yes | Base64-encoded 32-byte key |
-| `PORT` | No | API port (default: 3001) |
+| `BETTER_AUTH_SECRET` | Yes | Web auth secret (`bunx --bun @better-auth/cli secret`) |
+| `PORT` | No | Web port (default: 3000) |
+| `API_PORT` | No | API port (default: 3001) |
 
 **Volumes:**
 - PostgreSQL data is persisted in `postgres_data` volume

@@ -105,7 +105,8 @@ curl https://api.example.com/health
 | Variable | Source | Description |
 |----------|--------|-------------|
 | `NODE_ENV` | ConfigMap | Environment (production) |
-| `PORT` | ConfigMap | API port (3001) |
+| `PORT` | ConfigMap | Web port (3000) |
+| `API_PORT` | ConfigMap | API port (3001) |
 | `DB_ENGINE` | ConfigMap | Database engine (postgres) |
 | `DATABASE_URL` | Secret | PostgreSQL connection string |
 | `ROUTER_CREDENTIALS_KEY` | Secret | Encryption key for credentials |

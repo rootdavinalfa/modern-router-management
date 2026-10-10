@@ -84,7 +84,8 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN mkdir -p /app/data && chown -R bun:bun /app
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3000
+ENV API_PORT=3001
 ENV DB_ENGINE=postgres
 
 USER bun
@@ -93,7 +94,7 @@ EXPOSE 3001
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD bun run -e "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))" || exit 1
+    CMD bun -e "Promise.all([fetch('http://localhost:' + (process.env.PORT || 3000) + '/health'), fetch('http://localhost:' + (process.env.API_PORT || 3001) + '/health')]).then(rs => rs.every(r => r.ok) ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))" || exit 1
 
-# Start both API and TanStack Start server
-CMD ["sh", "-c", "bun run apps/api/dist/main.js & PORT=3000 bun run apps/web/dist/server/server.js"]
+# Start both API and TanStack Start server (web reads PORT, API reads API_PORT)
+CMD ["sh", "-c", "PORT=${API_PORT:-3001} bun run apps/api/dist/main.js & bun run apps/web/dist/server/server.js"]

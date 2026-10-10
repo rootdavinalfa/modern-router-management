@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WifiRouteImport } from './routes/wifi'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as HealthRouteImport } from './routes/health'
 import { Route as DevicesRouteImport } from './routes/devices'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -23,6 +24,11 @@ const WifiRoute = WifiRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevicesRoute = DevicesRouteImport.update({
@@ -44,6 +50,7 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/devices': typeof DevicesRoute
+  '/health': typeof HealthRoute
   '/settings': typeof SettingsRoute
   '/wifi': typeof WifiRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/devices': typeof DevicesRoute
+  '/health': typeof HealthRoute
   '/settings': typeof SettingsRoute
   '/wifi': typeof WifiRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -59,21 +67,36 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/devices': typeof DevicesRoute
+  '/health': typeof HealthRoute
   '/settings': typeof SettingsRoute
   '/wifi': typeof WifiRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/devices' | '/settings' | '/wifi' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/devices'
+    | '/health'
+    | '/settings'
+    | '/wifi'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/devices' | '/settings' | '/wifi' | '/api/auth/$'
-  id: '__root__' | '/' | '/devices' | '/settings' | '/wifi' | '/api/auth/$'
+  to: '/' | '/devices' | '/health' | '/settings' | '/wifi' | '/api/auth/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/devices'
+    | '/health'
+    | '/settings'
+    | '/wifi'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DevicesRoute: typeof DevicesRoute
+  HealthRoute: typeof HealthRoute
   SettingsRoute: typeof SettingsRoute
   WifiRoute: typeof WifiRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -93,6 +116,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/devices': {
@@ -122,6 +152,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DevicesRoute: DevicesRoute,
+  HealthRoute: HealthRoute,
   SettingsRoute: SettingsRoute,
   WifiRoute: WifiRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
